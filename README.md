@@ -148,7 +148,7 @@ is held or deferred, the evidence that would reopen it is stated, and the
 lesson returns to unaffected work. Decisions are kept in
 `.study/decisions.jsonl` and summarized in the checkpoint for the next chat.
 
-## Uninstall And Migration
+## Uninstall
 
 Remove the current StudyAny installation for selected clients:
 
@@ -158,19 +158,8 @@ studyany uninstall --scope global --client claude,codex
 ```
 
 For a project installation, use `--scope project` and the relevant client.
-Uninstall removes only the new `studyany` skill and the managed Claude
-`learn.md` command. A normal upgrade never deletes the old
-`adaptive-learning-coach` directory. After verifying the new skill works,
-remove any old directory manually if it remains:
-
-```text
-~/.claude/skills/adaptive-learning-coach/
-$CODEX_HOME/skills/adaptive-learning-coach/
-```
-
-On Windows, the default Codex path is
-`%USERPROFILE%\.codex\skills\adaptive-learning-coach\` when `CODEX_HOME` is
-not set. Keep the old copy only if another project still depends on it.
+Uninstall removes the selected `studyany` skill and the managed Claude
+`learn.md` command.
 
 ## Publish
 
