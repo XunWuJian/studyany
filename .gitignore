@@ -1,0 +1,12 @@
+node_modules/
+.study/
+.npmrc
+.env
+.env.*
+npm-debug.log*
+*.tgz
+
+# Local AI client and Trellis runtime files are not part of the published source.
+.claude/
+.cursor/
+.trellis/

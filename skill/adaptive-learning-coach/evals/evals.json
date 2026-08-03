@@ -1,0 +1,26 @@
+{
+  "skill_name": "adaptive-learning-coach",
+  "evals": [
+    {
+      "id": 1,
+      "name": "technical-subject-from-zero",
+      "prompt": "I want to learn Python from zero so I can build a small web API. I can study 45 minutes on weekdays. Start by asking only the questions needed to create a baseline, then give me the first interactive lesson. Do not dump the whole course or give answers before I attempt the exercises.",
+      "expected_output": "The skill creates or proposes a learner profile and measurable goal, asks a short diagnostic, selects a technical/procedural mode, gives one or two objectives, and starts an interactive lesson with recall and practice rather than a long syllabus.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "conceptual-learning-and-review",
+      "prompt": "Help me learn the causes of the French Revolution for an exam in three weeks. I have read a summary but remember little. Give me a short diagnostic, teach one lesson, schedule a review, and explain what you will record. Treat reading as insufficient evidence of mastery.",
+      "expected_output": "The skill uses a conceptual mode, tests recall and causal explanation, distinguishes exposure from retrieval/application, proposes a measurable exam-oriented roadmap, and gives a transparent review date or clearly labels the date as provisional.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "practical-skill-recovery",
+      "prompt": "I want to learn photography, but I missed the last two study sessions and now feel behind. I have a camera and can practice for 20 minutes tonight. Help me recover without restarting everything. Give me one safe practical exercise and record the short session using an estimated duration if needed.",
+      "expected_output": "The skill enters recovery mode, preserves prior history, reduces scope to a minimum viable practical task, uses a practical/creative mode with observable evidence, avoids shaming, and labels duration as a user estimate when no timestamps are available.",
+      "files": []
+    }
+  ]
+}

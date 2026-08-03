@@ -1,0 +1,30 @@
+{
+  "name": "studyany",
+  "version": "0.1.0",
+  "description": "A domain-agnostic adaptive learning coach skill with study-time tracking.",
+  "type": "module",
+  "bin": {
+    "studyany-adaptive-learning-coach": "bin/install.mjs"
+  },
+  "files": [
+    "skill/",
+    "bin/",
+    "commands/",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "postinstall": "node bin/install.mjs install --auto"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai",
+    "learning",
+    "skill",
+    "claude",
+    "cursor"
+  ],
+  "license": "MIT"
+}
