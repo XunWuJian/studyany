@@ -28,3 +28,7 @@ manipulation, or observation; combine them when both are needed. Require an
 attempt, recall answer, artifact, or other observable evidence before claiming
 progress. End with one concrete next action and a review date when evidence
 supports one, then persist the result and checkpoint before ending.
+
+Learner-editable artifacts must be placed in a visible project-root path. Use
+`studyany-artifacts/<goal>/` when no project path was supplied; reserve
+`.study/` for learning metadata and logs.

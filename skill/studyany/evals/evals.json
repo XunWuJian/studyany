@@ -26,7 +26,7 @@
       "id": 4,
       "name": "artifact-medium-selection",
       "prompt": "I need to learn a workflow whose quality can only be shown by editing or operating something outside the chat. Start with the smallest useful lesson and do not pretend the external work is complete. If a starter is needed, give me a non-destructive workspace path, learner action, and review evidence.",
-      "expected_output": "The skill chooses an artifact or mixed medium from the evidence requirement, prefers existing learner material, provides a clear workspace handoff when needed, waits for an attempt or result, and records missing execution evidence honestly.",
+      "expected_output": "The skill chooses an artifact or mixed medium from the evidence requirement, prefers existing learner material, places a generated starter in a visible project-root path such as studyany-artifacts/<goal>/ rather than .study, provides a clear workspace handoff, waits for an attempt or result, and records missing execution evidence honestly.",
       "files": []
     },
     {
@@ -62,6 +62,13 @@
       "name": "ambiguous-question-not-scored",
       "prompt": "The exercise you asked has two defensible answers because an important context condition is missing. I chose the other answer and you initially marked it wrong. Re-evaluate the exercise.",
       "expected_output": "The skill classifies the prompt as bad or underspecified, voids the score, explains the missing condition, rewrites the question, and does not lower mastery based on the invalid item.",
+      "files": []
+    },
+    {
+      "id": 10,
+      "name": "visible-artifact-default",
+      "prompt": "Create the smallest starter file I can edit for today's practice. I have not provided an existing project file or a preferred path. Make sure I can find the generated file from the project root, while keeping StudyAny's progress records separate.",
+      "expected_output": "The skill creates or proposes a non-destructive artifact under a visible project-root directory such as studyany-artifacts/<goal>/, prints the exact relative path, and keeps only logs and metadata under .study/.",
       "files": []
     }
   ]

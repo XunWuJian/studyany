@@ -28,13 +28,20 @@ not force it when conversation alone is sufficient.
 2. If no suitable material exists, create the smallest useful starter,
    template, checklist, test, fixture, prompt sheet, or other scaffold. Tell
    the learner exactly what was created and why.
-3. Put generated working files under a goal- or session-specific directory
-   such as `.study/artifacts/<goal-slug>/` unless the learner explicitly
-   chooses another workspace. Keep the path project-relative in the record
-   when possible.
-4. Never overwrite a non-empty learner file. Choose a new filename or ask
+3. Keep learner-editable files visible in the current project workspace. If
+   the learner has not supplied a project path, use the root-level directory
+   `studyany-artifacts/<goal-slug>/` by default. For a project-specific
+   objective, prefer a visible path inside the learner's project, such as its
+   existing source or exercise directory. If the learner explicitly chooses a
+   different path, use that path instead. `.study/` is reserved for internal
+   records and must not be the default location for files the learner needs to
+   open or edit.
+4. Keep the path project-relative in the record when possible, and show the
+   exact path in the learner handoff. The learner should be able to find the
+   file from the project root without searching hidden directories.
+5. Never overwrite a non-empty learner file. Choose a new filename or ask
    before replacing it. Do not silently modify unrelated project files.
-5. A starter is not evidence of mastery. Leave meaningful decisions and work
+6. A starter is not evidence of mastery. Leave meaningful decisions and work
    for the learner unless the objective explicitly calls for analysis of a
    provided example.
 
@@ -47,6 +54,15 @@ Workspace: <where to work>
 Artifact: <file, tool state, or external reference>
 Learner action: <the exact change or performance to complete>
 Review evidence: <what to return, run, show, or explain>
+```
+
+For a generated local file, include a visible relative path, for example:
+
+```text
+Workspace: project root
+Artifact: studyany-artifacts/topic-name/starter.py
+Learner action: Open the file from the project root and complete the marked task
+Review evidence: Return the diff or execution output
 ```
 
 The learner action should be small enough for the current session and should

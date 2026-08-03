@@ -169,7 +169,7 @@ item. Do not copy the artifact contents into the log.
   "subject": "example subject",
   "kind": "file|external_result|procedure|performance|other",
   "workspace": ".",
-  "path": ".study/artifacts/goal-slug/starter.ext",
+  "path": "studyany-artifacts/goal-slug/starter.ext",
   "external_ref": null,
   "status": "planned|in_progress|submitted|reviewed|abandoned|missing_evidence",
   "created_at": "2026-08-03T19:00:00+08:00",

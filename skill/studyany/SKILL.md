@@ -72,6 +72,10 @@ Look for `.study/` in the current workspace. The expected files are:
 └── dashboard.md
 ```
 
+`.study/` is internal learning metadata. Do not put learner-editable code,
+documents, workbooks, or other practice files there by default. Use the
+visible workspace rules in `references/artifact-workflow.md` for those files.
+
 If the directory or a file is missing, do not fail and do not invent history.
 Create only the minimum missing state after confirming the learner's subject
 and goal. For an existing learner, rebuild a missing checkpoint from the
