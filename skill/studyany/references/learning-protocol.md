@@ -61,6 +61,17 @@ needs a subset.
 Use milestone gates rather than calendar promises. A stage is ready to advance
 when the evidence meets its exit criteria; time estimates are provisional.
 
+### Challenge review
+
+When the learner disputes a fact, procedure, route, assessment, or question,
+pause the roadmap change and use `references/challenge-protocol.md`. State the
+exact claim and assumptions, check the strongest available evidence, and select
+one verdict. A factual error is corrected and propagated; a valid alternative
+is compared while one default remains explicit; an ambiguous question is
+voided; and evidence that cannot decide is deferred. Repeated rejection
+without new evidence does not justify alternating methods or restarting the
+roadmap.
+
 ## 4. Run a study session
 
 Use this default allocation as a starting point, not a rigid law:

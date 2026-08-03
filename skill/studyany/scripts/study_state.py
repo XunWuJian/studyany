@@ -78,6 +78,44 @@ def latest_by(rows: Iterable[Dict[str, Any]], field: str) -> Dict[str, Dict[str,
     return latest
 
 
+def latest_decisions(rows: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Return the newest decision for each stable challenged claim."""
+    latest: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        claim_id = row.get("claim_id") or row.get("decision_id")
+        if isinstance(claim_id, str) and claim_id:
+            latest[claim_id] = row
+    return latest
+
+
+def open_disputes(decisions: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Extract only decisions that still need evidence or explicit deferral."""
+    disputes: List[Dict[str, Any]] = []
+    for row in decisions:
+        status = row.get("status")
+        if status not in ("pending_evidence", "deferred", "disputed", "open") and row.get("verdict") != "uncertain":
+            continue
+        disputes.append(
+            {
+                "decision_id": row.get("decision_id"),
+                "claim_id": row.get("claim_id") or row.get("decision_id"),
+                "kind": row.get("kind"),
+                "status": status or "pending_evidence",
+                "summary": row.get("decision") or row.get("original_claim"),
+                "next_evidence": row.get("next_evidence"),
+                "challenge_count": row.get("challenge_count", 0),
+                "source_ref": row.get("decision_id"),
+            }
+        )
+    return sorted(
+        disputes,
+        key=lambda item: (
+            item.get("status") or "",
+            item.get("claim_id") or "",
+        ),
+    )
+
+
 def latest_row(rows: Iterable[Dict[str, Any]], time_fields: Iterable[str]) -> Optional[Dict[str, Any]]:
     candidates = list(rows)
     if not candidates:
@@ -237,6 +275,9 @@ def build_state(study_root: Path) -> Dict[str, Any]:
     concepts = list(latest_by(read_jsonl(study_root / "concepts.jsonl", warnings), "concept_id").values())
     assessments = read_jsonl(study_root / "assessments.jsonl", warnings)
     reviews = read_jsonl(study_root / "reviews.jsonl", warnings)
+    decisions_path = study_root / "decisions.jsonl"
+    decision_rows = read_jsonl(decisions_path, warnings)
+    decision_map = latest_decisions(decision_rows)
     sessions_path = study_root / "sessions.jsonl"
     sessions = read_jsonl(sessions_path, warnings)
     active = read_json(study_root / "active-session.json", warnings)
@@ -245,6 +286,14 @@ def build_state(study_root: Path) -> Dict[str, Any]:
         warnings.append("checkpoint.json is missing; run study_state.py rebuild before starting new material")
     if not sessions_path.exists():
         warnings.append("sessions.jsonl is missing; historical study time is unknown")
+    checkpoint_plan_has_decisions = (
+        isinstance(checkpoint.get("plan"), dict)
+        and checkpoint.get("plan", {}).get("decision_refs")
+    ) if checkpoint else False
+    if checkpoint and not decisions_path.exists() and (
+        checkpoint.get("open_disputes") or checkpoint_plan_has_decisions
+    ):
+        warnings.append("decisions.jsonl is missing; challenge history is incomplete")
     if active is not None:
         warnings.append("an open session exists; reconcile it before starting another session")
     if not goals:
@@ -255,6 +304,7 @@ def build_state(study_root: Path) -> Dict[str, Any]:
     today = datetime.now().astimezone().date().isoformat()
     latest_assessment = latest_row(assessments, ("created_at",))
     latest_review = latest_row(reviews, ("reviewed_at",))
+    latest_decision = latest_row(decision_rows, ("created_at",))
     latest_session = latest_row(sessions, ("ended_at", "started_at"))
     stage = stage_state(roadmap)
     checkpoint_loops = checkpoint.get("open_loops") if checkpoint else None
@@ -269,8 +319,32 @@ def build_state(study_root: Path) -> Dict[str, Any]:
     if not next_review:
         next_review = next_review_date(concepts)
 
+    disputes = open_disputes(decision_map.values())
+    if not disputes and checkpoint:
+        checkpoint_disputes = checkpoint.get("open_disputes")
+        if isinstance(checkpoint_disputes, list):
+            disputes = checkpoint_disputes
+    decision_refs = [
+        row.get("decision_id")
+        for row in decision_map.values()
+        if isinstance(row.get("decision_id"), str) and row.get("decision_id")
+    ]
+    checkpoint_plan = checkpoint.get("plan") if checkpoint else None
+    if isinstance(checkpoint_plan, dict):
+        plan = dict(checkpoint_plan)
+    else:
+        plan = {
+            "version": roadmap.get("version") or "roadmap-v1",
+            "status": "disputed" if disputes else "active",
+            "decision_refs": [],
+        }
+    if decision_refs:
+        plan["decision_refs"] = decision_refs
+    elif not isinstance(plan.get("decision_refs"), list):
+        plan["decision_refs"] = []
+
     activity_times = []
-    for row in (latest_assessment, latest_review, latest_session):
+    for row in (latest_assessment, latest_review, latest_decision, latest_session):
         if isinstance(row, dict):
             for field in ("created_at", "reviewed_at", "ended_at", "started_at", "updated_at"):
                 parsed = parse_time(row.get(field))
@@ -289,11 +363,14 @@ def build_state(study_root: Path) -> Dict[str, Any]:
         "last_evidence": latest_evidence,
         "latest_assessment_id": latest_assessment.get("assessment_id") if latest_assessment else None,
         "latest_review_id": latest_review.get("review_id") if latest_review else None,
+        "latest_decision_id": latest_decision.get("decision_id") if latest_decision else None,
         "latest_session_id": latest_session.get("session_id") if latest_session else None,
         "open_loops": loops,
         "due_reviews": due,
         "next_action": next_action,
         "next_review": next_review,
+        "plan": plan,
+        "open_disputes": disputes,
         "active_session": active,
         "time": time_summary(sessions, sessions_path),
         "warnings": warnings,
@@ -304,6 +381,7 @@ def build_state(study_root: Path) -> Dict[str, Any]:
             "concepts": len(concepts),
             "assessments": len(assessments),
             "reviews": len(reviews),
+            "decisions": len(decision_rows),
             "sessions": len(sessions),
         },
     }
@@ -328,6 +406,16 @@ def checkpoint_from_state(state: Dict[str, Any]) -> Dict[str, Any]:
         "last_session_id": state.get("latest_session_id"),
         "last_assessment_id": state.get("latest_assessment_id"),
         "last_review_id": state.get("latest_review_id"),
+        "last_decision_id": state.get("latest_decision_id"),
+        "plan": state.get(
+            "plan",
+            {
+                "version": "roadmap-v1",
+                "status": "active",
+                "decision_refs": [],
+            },
+        ),
+        "open_disputes": state.get("open_disputes", []),
         "last_evidence": state.get("last_evidence"),
         "open_loops": state.get("open_loops", []),
         "next_action": state.get("next_action"),
@@ -363,6 +451,10 @@ def print_human(state: Dict[str, Any]) -> None:
     print("Open loops: %d" % len(loops))
     for loop in loops[:5]:
         print("- [%s] %s" % (loop.get("priority", "normal"), loop.get("summary", "unresolved item")))
+    disputes = state.get("open_disputes") or []
+    print("Open disputes: %d" % len(disputes))
+    for dispute in disputes[:3]:
+        print("- [%s] %s" % (dispute.get("status", "pending"), dispute.get("summary", "unresolved decision")))
     due = state.get("due_reviews") or []
     print("Due reviews: %s" % (", ".join(str(item.get("concept_id")) for item in due) or "none"))
     print("Next action: %s" % (state.get("next_action") or "reconcile state and choose one objective"))

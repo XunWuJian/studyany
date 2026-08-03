@@ -13,6 +13,7 @@ current pointer, durable history, and a readable summary:
 ├── roadmap.json          # current plan and stage pointer
 ├── goals.json            # goal contract
 ├── artifacts.jsonl       # artifact lifecycle and evidence links
+├── decisions.jsonl       # challenge adjudications and route decisions
 └── dashboard.md          # derived human-readable report
 ```
 
@@ -40,14 +41,16 @@ For every non-setup learning interaction:
    goal. A rebuilt checkpoint is `partial` when source evidence or time is
    missing.
 4. Read `checkpoint.json`, the current roadmap stage, the latest relevant
-   concept records, and the latest assessment/review events. Do not scan every
-   historical line unless a report or audit requires it.
+   concept records, the latest assessment/review events, and the latest
+   decision for each challenged claim. Do not scan every historical line unless
+   a report or audit requires it.
 5. Surface a compact resume block before teaching:
 
    ```text
    Resume: <subject and current stage>
    Last evidence: <latest observed evidence or unknown>
    Open loops: <highest-priority unresolved evidence>
+   Open disputes: <pending or deferred challenge decisions, or none>
    Due reviews: <items and dates>
    Next action: <the saved action>
    Time: <measured total or unknown, with the reason>
@@ -56,7 +59,9 @@ For every non-setup learning interaction:
 6. If a checkpoint, goal, and roadmap already exist, do not ask the learner to
    repeat setup or restart the diagnostic. Ask the saved open-loop question or
    assign the saved next action. Ask for clarification only when records
-   conflict or the learner explicitly changes the goal.
+   conflict or the learner explicitly changes the goal. Do not reopen a
+   locked challenge decision unless new evidence, a new version, or a changed
+   constraint is present.
 
 ## Keep Open Loops Small
 
@@ -104,6 +109,9 @@ next turn.
   corrected during the next checkpoint update.
 - Latest observed assessment/review evidence outranks a prose dashboard line.
 - A checkpoint points to evidence; it does not replace that evidence.
+- A settled challenge decision is part of the resume boundary. Reopen it only
+  through `references/challenge-protocol.md` and record the new evidence and
+  revision; do not let the latest conversational assertion override it.
 - Missing `sessions.jsonl` means historical time is unknown, not zero.
 - Missing assessment dimensions remain `null`, not a failed score.
 - If a record is malformed, preserve it, report the warning, and continue with

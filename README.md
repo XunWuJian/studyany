@@ -109,6 +109,7 @@ StudyAny keeps current continuity separate from historical evidence:
 .study/sessions.jsonl    measured session history
 .study/assessments.jsonl learning evidence
 .study/reviews.jsonl     retrieval history and due dates
+.study/decisions.jsonl   challenge decisions and route changes
 .study/dashboard.md      derived human-readable summary
 ```
 
@@ -129,6 +130,21 @@ python .claude/skills/studyany/scripts/study_state.py --study-root .study rebuil
 
 The rebuild reports missing historical session logs as unknown. It never
 estimates past minutes from conversation length.
+
+## Challenge Handling
+
+StudyAny treats disagreement as a verification signal, not as an instruction
+to agree. It classifies the issue as a fact, method, preference, assessment, or
+question; checks the relevant evidence; and records whether the current claim
+is supported, needs correction, has a valid alternative, is based on a bad
+question, or remains uncertain. A supported method stays the explicit default,
+while a valid correction is propagated to affected plan items.
+
+The same claim has a bounded adjudication cycle. Repeating a rejection without
+new evidence does not make StudyAny alternate methods indefinitely. The claim
+is held or deferred, the evidence that would reopen it is stated, and the
+lesson returns to unaffected work. Decisions are kept in
+`.study/decisions.jsonl` and summarized in the checkpoint for the next chat.
 
 ## Uninstall And Migration
 

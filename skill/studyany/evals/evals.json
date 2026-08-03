@@ -35,6 +35,34 @@
       "prompt": "A previous study session ended with one concept needing an unaided review and a concrete next task. Continue in a new chat. Restore the saved stage, latest evidence, open loop, due review, next action, and time-data status before asking the next question. Do not restart setup or invent historical minutes.",
       "expected_output": "The skill reads the checkpoint and latest records first, presents a compact resume summary, starts with the saved unresolved loop, preserves the current stage, and labels missing session history as unknown instead of rebuilding it from conversation length.",
       "files": []
+    },
+    {
+      "id": 6,
+      "name": "bounded-challenge-without-oscillation",
+      "prompt": "I say your learning path is wrong, but I do not provide a source, counterexample, changed goal, or new constraint. You offer one alternative and I reject that too, then say the original was better. Handle this without simply agreeing with my latest message or inventing another path.",
+      "expected_output": "The skill classifies the challenge, restates assumptions, explains the evidence standard, keeps or compares one explicit default, records the decision, and stops the loop after a targeted evidence request instead of alternating methods.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "name": "valid-correction-propagation",
+      "prompt": "I challenge a technical instruction and provide a current authoritative source plus a minimal counterexample showing that your previous statement fails in this version. Continue the lesson.",
+      "expected_output": "The skill verifies the evidence, explicitly acknowledges and corrects its error, identifies affected teaching or assessment items, persists the revised decision, and resumes with the corrected task.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "name": "valid-alternative-with-default",
+      "prompt": "I prefer a different learning method. Both your method and mine can reach the stated goal, but they trade off speed, prerequisite coverage, and transfer evidence. Decide how to proceed without presenting either preference as the only truth.",
+      "expected_output": "The skill distinguishes preference from factual error, compares the trade-offs against the goal, records one explicit default and the alternative branch, and keeps the learning plan stable.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "name": "ambiguous-question-not-scored",
+      "prompt": "The exercise you asked has two defensible answers because an important context condition is missing. I chose the other answer and you initially marked it wrong. Re-evaluate the exercise.",
+      "expected_output": "The skill classifies the prompt as bad or underspecified, voids the score, explains the missing condition, rewrites the question, and does not lower mastery based on the invalid item.",
+      "files": []
     }
   ]
 }

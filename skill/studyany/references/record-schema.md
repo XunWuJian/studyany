@@ -82,6 +82,23 @@ It is not a replacement for append-only evidence logs.
   "last_session_id": "session-2026-08-03-001",
   "last_assessment_id": "assessment-2026-08-03-001",
   "last_review_id": "review-2026-08-03-001",
+  "last_decision_id": "decision-2026-08-03-001",
+  "plan": {
+    "version": "roadmap-v1",
+    "status": "active|disputed|deferred",
+    "decision_refs": []
+  },
+  "open_disputes": [
+    {
+      "decision_id": "decision-2026-08-03-001",
+      "claim_id": "claim-stage-02-order",
+      "kind": "fact|path|preference|assessment|question",
+      "status": "pending_evidence|deferred",
+      "summary": "The current route depends on one unresolved claim",
+      "next_evidence": "A source, test, or changed-example result",
+      "challenge_count": 1
+    }
+  ],
   "last_evidence": "Completed a changed-example task with a light cue",
   "open_loops": [
     {
@@ -168,6 +185,37 @@ Use a project-relative `path` when possible. Use `external_ref` for a result
 that is not represented by a local path, and use `null` for unavailable values.
 The artifact record describes evidence state; it does not establish duration or
 mastery by itself.
+
+## decisions.jsonl
+
+Each line records an adjudication or explicit reopening of a challenged claim.
+The file is append-only. Use the same `claim_id` when revising the same claim;
+increment `revision` and `challenge_count`. A later record is the current
+decision for that claim.
+
+```json
+{
+  "decision_id": "decision-2026-08-03-001",
+  "claim_id": "claim-roadmap-stage-02-order",
+  "kind": "fact|path|preference|assessment|question",
+  "original_claim": "The prerequisite should come before the workflow",
+  "challenge": "The learner proposed the reverse order",
+  "verdict": "ai_error|ai_position_supported|valid_alternative|bad_question|uncertain",
+  "status": "resolved|locked|pending_evidence|deferred",
+  "assumptions": ["The goal includes independent troubleshooting"],
+  "evidence_refs": ["assessment-2026-08-03-002"],
+  "revision": 1,
+  "challenge_count": 1,
+  "decision": "Keep the prerequisite first for the current goal",
+  "alternatives": [],
+  "affected_items": ["stage-02"],
+  "next_evidence": "A changed-example troubleshooting task",
+  "created_at": "2026-08-03T19:00:00+08:00"
+}
+```
+
+`ai_position_supported` means the evidence still supports the current
+position; it is not a claim that the route is universally optimal.
 
 ## sessions.jsonl
 

@@ -1,13 +1,17 @@
 {
   "name": "studyany",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "An AI-assisted learning coach skill with study-time tracking and artifact-based practice.",
   "type": "module",
   "bin": {
     "studyany": "bin/install.mjs"
   },
   "files": [
-    "skill/",
+    "skill/studyany/SKILL.md",
+    "skill/studyany/references/",
+    "skill/studyany/evals/",
+    "skill/studyany/scripts/study_clock.py",
+    "skill/studyany/scripts/study_state.py",
     "bin/",
     "commands/",
     "README.md",

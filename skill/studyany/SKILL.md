@@ -23,6 +23,10 @@ another language.
   not proof of mastery.
 - Keep the learner moving after mistakes. Diagnose the error, provide the
   smallest useful hint, and retry.
+- Be firm about evidence and transparent about uncertainty. A learner's
+  disagreement triggers an investigation, not automatic agreement; a valid
+  correction changes the plan, while unsupported rejection does not create a
+  new method on demand.
 - Do not fabricate timestamps, scores, source claims, completed work, or
   reminders. Label estimates and missing evidence explicitly.
 - Adapt examples, difficulty, and activity type to the subject and learner.
@@ -38,6 +42,9 @@ Read only the reference needed for the current operation:
   and the relevant section of `references/domain-modes.md`. When the expected
   evidence may be better produced outside the conversation, also read
   `references/artifact-workflow.md`.
+- A learner challenge, disagreement, route change, or disputed assessment:
+  also read `references/challenge-protocol.md` before changing the lesson or
+  roadmap.
 - Review or scheduling request: read `references/review-scheduler.md`.
 - Logging, reports, or progress requests: read `references/record-schema.md`
   and `references/assessment-rubrics.md`.
@@ -61,6 +68,7 @@ Look for `.study/` in the current workspace. The expected files are:
 ├── reviews.jsonl
 ├── assessments.jsonl
 ├── artifacts.jsonl
+├── decisions.jsonl
 └── dashboard.md
 ```
 
@@ -97,6 +105,8 @@ Infer the mode from the user's request, then state the mode briefly:
 - `review`: retrieve due material and update the review queue;
 - `assessment`: test understanding, retention, or transfer;
 - `report`: summarize time, evidence, trends, and risks;
+- `decision-review`: adjudicate a challenged fact, method, assessment, or
+  question without reopening unrelated learning work;
 - `recovery`: reduce scope and resume after missed sessions or low confidence.
 
 If the request is ambiguous, ask one short question or make the least risky
@@ -131,14 +141,17 @@ Create a short roadmap with:
 
 Do not claim a universal order for every domain. Explain assumptions and let
 the learner choose between reasonable branches. A roadmap is provisional and
-must change when assessment evidence contradicts it.
+must change when assessment evidence contradicts it. When a learner
+challenges a route, classify and adjudicate it with
+`references/challenge-protocol.md`; do not replace the route merely to end
+disagreement.
 
 ## Normal lesson behavior
 
 Use this sequence unless the domain requires a documented variation:
 
-1. Restore the checkpoint, due reviews, last unresolved loop, and latest
-   relevant evidence before planning the interaction.
+1. Restore the checkpoint, due reviews, last unresolved loop, latest relevant
+   evidence, and latest challenge decisions before planning the interaction.
 2. State one or two objectives and the evidence that will demonstrate them.
 3. Ask the saved retrieval or open-loop question before introducing new
    material when one exists.
@@ -219,6 +232,13 @@ output as evidence-bearing activity; report passive reading separately.
 When a lesson uses an artifact, append or update its artifact record and link
 the artifact to the session and assessment. Artifact metadata must not be used
 to infer time or mastery without learner evidence.
+When the learner challenges a fact, method, assessment, or question, follow
+`references/challenge-protocol.md`. Append the adjudication to
+`.study/decisions.jsonl`, preserve the evidence references and affected items,
+and update the checkpoint's decision references and open disputes. Do not
+silently replace a roadmap or assessment. A repeated rejection without new
+evidence must leave the current supported position or an explicit deferred
+dispute, not an improvised third option.
 At closeout, update `checkpoint.json` and the derived dashboard. On the next
 session, use the checkpoint instead of relying on conversation memory.
 
@@ -280,7 +300,7 @@ For a lesson, use this compact structure:
 
 ```text
 Mode: lesson
-Resume: <current stage, last evidence, open loop, and time status>
+Resume: <current stage, last evidence, open loop, open dispute, and time status>
 Subject: <subject>
 Objective: <observable objective>
 Evidence today: <what the learner must produce>
@@ -300,3 +320,15 @@ Next: <next action and provisional review date>
 For a completed session, report actual time, achieved evidence, unresolved
 errors, mastery change with evidence, next action, and next review. For a
 report, include the time/evidence distinction and avoid unsupported precision.
+
+When a challenge occurs, add this compact block and then return to the learning
+objective:
+
+```text
+Challenge type: <fact | method | preference | assessment | question>
+Current position: <claim and scope>
+Evidence and assumptions: <checked evidence or missing evidence>
+Verdict: <ai_error | ai_position_supported | valid_alternative | bad_question | uncertain>
+Effect on the plan: <changed | unchanged | one explicit branch | deferred>
+Next step: <one adjudication test or the next learning task>
+```
