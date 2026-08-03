@@ -28,6 +28,13 @@
       "prompt": "I need to learn a workflow whose quality can only be shown by editing or operating something outside the chat. Start with the smallest useful lesson and do not pretend the external work is complete. If a starter is needed, give me a non-destructive workspace path, learner action, and review evidence.",
       "expected_output": "The skill chooses an artifact or mixed medium from the evidence requirement, prefers existing learner material, provides a clear workspace handoff when needed, waits for an attempt or result, and records missing execution evidence honestly.",
       "files": []
+    },
+    {
+      "id": 5,
+      "name": "cross-session-resume",
+      "prompt": "A previous study session ended with one concept needing an unaided review and a concrete next task. Continue in a new chat. Restore the saved stage, latest evidence, open loop, due review, next action, and time-data status before asking the next question. Do not restart setup or invent historical minutes.",
+      "expected_output": "The skill reads the checkpoint and latest records first, presents a compact resume summary, starts with the saved unresolved loop, preserves the current stage, and labels missing session history as unknown instead of rebuilding it from conversation length.",
+      "files": []
     }
   ]
 }

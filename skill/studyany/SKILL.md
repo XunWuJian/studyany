@@ -43,6 +43,8 @@ Read only the reference needed for the current operation:
   and `references/assessment-rubrics.md`.
 - High-consequence subject: also apply the safety section in
   `references/domain-modes.md`.
+- Every non-setup learning interaction: read `references/continuity-protocol.md`
+  before selecting a lesson, review, or practice task.
 
 ## Start by loading state
 
@@ -53,6 +55,7 @@ Look for `.study/` in the current workspace. The expected files are:
 ├── profile.json
 ├── goals.json
 ├── roadmap.json
+├── checkpoint.json
 ├── concepts.jsonl
 ├── sessions.jsonl
 ├── reviews.jsonl
@@ -63,8 +66,25 @@ Look for `.study/` in the current workspace. The expected files are:
 
 If the directory or a file is missing, do not fail and do not invent history.
 Create only the minimum missing state after confirming the learner's subject
-and goal. Use the schemas in `references/record-schema.md`. Treat JSONL files
-as append-only logs and the dashboard as a derived, human-readable view.
+and goal. For an existing learner, rebuild a missing checkpoint from the
+available records and mark its quality as partial. Use the schemas in
+`references/record-schema.md`. Treat JSONL files as append-only logs, the
+checkpoint as the current resume pointer, and the dashboard as a derived,
+human-readable view.
+
+## Cross-session continuity
+
+At the start of every non-setup interaction, follow
+`references/continuity-protocol.md`. When a shell is available, run
+`scripts/study_state.py status --json` and use its output to restore the
+current stage, last evidence, due reviews, open loops, next action, and time
+tracking status. Present a short `Resume` block before teaching. Do not ask the
+learner to repeat a goal or diagnostic that is already persisted.
+
+At closeout, persist the observed result and update `checkpoint.json` with the
+next action and unresolved evidence. A message that only describes what should
+be recorded is not a record. If time data is missing, say so and leave it
+unknown.
 
 ## Select the interaction mode
 
@@ -117,9 +137,11 @@ must change when assessment evidence contradicts it.
 
 Use this sequence unless the domain requires a documented variation:
 
-1. Load due reviews and the last unresolved error.
+1. Restore the checkpoint, due reviews, last unresolved loop, and latest
+   relevant evidence before planning the interaction.
 2. State one or two objectives and the evidence that will demonstrate them.
-3. Ask a short recall or prediction question.
+3. Ask the saved retrieval or open-loop question before introducing new
+   material when one exists.
 4. Explain only the missing idea, with a concrete example.
 5. Select conversation, artifact, or mixed practice according to the
    evidence required. Read `references/artifact-workflow.md` for the artifact
@@ -129,7 +151,8 @@ Use this sequence unless the domain requires a documented variation:
 8. Give feedback tied to the rubric or expected result.
 9. Ask the learner to retry or explain the correction.
 10. Run an exit check and record uncertainty.
-11. Schedule the next review and state the next action.
+11. Schedule the next review, close the session record, and update the
+    checkpoint before stating the next action.
 
 For executable, manipulative, or externally observed work, encourage the
 learner to perform the task and report or return the result. Do not pretend to
@@ -173,8 +196,9 @@ as appropriate. Do not mark the session complete, assign mastery, or claim
 actual minutes until the learner reports the result or ends the session. On a
 later turn, reconcile the open record instead of creating a duplicate session.
 
-When a shell tool is available, use the bundled `scripts/study_clock.py` so
-the operating system supplies the timestamps. Resolve the script path from
+When a shell tool is available, first use `scripts/study_state.py` to restore
+state, then use the bundled `scripts/study_clock.py` so the operating system
+supplies timestamps. Resolve the script path from
 this skill's installation directory and run:
 
 ```text
@@ -195,6 +219,8 @@ output as evidence-bearing activity; report passive reading separately.
 When a lesson uses an artifact, append or update its artifact record and link
 the artifact to the session and assessment. Artifact metadata must not be used
 to infer time or mastery without learner evidence.
+At closeout, update `checkpoint.json` and the derived dashboard. On the next
+session, use the checkpoint instead of relying on conversation memory.
 
 ## Assessment and mastery
 
@@ -254,6 +280,7 @@ For a lesson, use this compact structure:
 
 ```text
 Mode: lesson
+Resume: <current stage, last evidence, open loop, and time status>
 Subject: <subject>
 Objective: <observable objective>
 Evidence today: <what the learner must produce>

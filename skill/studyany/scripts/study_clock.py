@@ -57,6 +57,24 @@ def append_jsonl(path: Path, value: Dict[str, Any]) -> None:
         stream.write(json.dumps(value, ensure_ascii=False) + "\n")
 
 
+def history_contains(path: Path, session_id: str) -> bool:
+    if not path.exists():
+        return False
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(record, dict) and record.get("session_id") == session_id:
+                return True
+    except OSError as exc:
+        raise ClockError("cannot inspect session history: %s" % exc) from exc
+    return False
+
+
 def session_paths(study_root: Path) -> Dict[str, Path]:
     return {
         "root": study_root,
@@ -93,6 +111,7 @@ def command_start(args: argparse.Namespace) -> None:
         "duration_source": "clock",
         "planned_minutes": args.planned_minutes,
         "status": "in_progress",
+        "evidence_mode": args.evidence_mode,
         "objectives": args.objective or [],
         "active_minutes": None,
         "passive_minutes": None,
@@ -101,6 +120,8 @@ def command_start(args: argparse.Namespace) -> None:
         "confidence_before": None,
         "confidence_after": None,
         "evidence_refs": [],
+        "artifact_ids": args.artifact_id or [],
+        "summary": None,
         "mistakes": [],
         "next_action": None,
         "next_review": None,
@@ -129,6 +150,11 @@ def command_stop(args: argparse.Namespace) -> None:
         raise ClockError("no active session exists; start a session first")
 
     session = read_json(paths["active"])
+    if history_contains(paths["sessions"], session.get("session_id", "")):
+        paths["active"].unlink()
+        session["status"] = "already_recorded"
+        emit(session)
+        return
     ended_at = timestamp()
     started_at = parse_timestamp(session["started_at"])
     ended = parse_timestamp(ended_at)
@@ -140,6 +166,10 @@ def command_stop(args: argparse.Namespace) -> None:
     session["status"] = args.status
     if args.summary is not None:
         session["summary"] = args.summary
+    if args.evidence_mode is not None:
+        session["evidence_mode"] = args.evidence_mode
+    if args.artifact_id:
+        session["artifact_ids"] = args.artifact_id
     if args.next_action is not None:
         session["next_action"] = args.next_action
     if args.next_review is not None:
@@ -180,6 +210,12 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--mode", default="lesson")
     start.add_argument("--objective", action="append")
     start.add_argument("--planned-minutes", type=float)
+    start.add_argument(
+        "--evidence-mode",
+        choices=("conversation", "artifact", "mixed"),
+        default="conversation",
+    )
+    start.add_argument("--artifact-id", action="append")
 
     commands.add_parser("status", help="show the open session and elapsed time")
 
@@ -193,6 +229,11 @@ def build_parser() -> argparse.ArgumentParser:
     stop.add_argument("--confidence-before", type=float)
     stop.add_argument("--confidence-after", type=float)
     stop.add_argument("--mistake", action="append")
+    stop.add_argument(
+        "--evidence-mode",
+        choices=("conversation", "artifact", "mixed"),
+    )
+    stop.add_argument("--artifact-id", action="append")
     return parser
 
 

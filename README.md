@@ -100,6 +100,36 @@ minimal non-destructive file under `.study/artifacts/` and records its status,
 path, session, and review evidence in `.study/artifacts.jsonl`. The starter is
 scaffolding, not proof that the learner has mastered the objective.
 
+## Persistent Study State
+
+StudyAny keeps current continuity separate from historical evidence:
+
+```text
+.study/checkpoint.json   current stage, open loops, next action, and resume state
+.study/sessions.jsonl    measured session history
+.study/assessments.jsonl learning evidence
+.study/reviews.jsonl     retrieval history and due dates
+.study/dashboard.md      derived human-readable summary
+```
+
+At the start of a new conversation, the skill reads the checkpoint and latest
+records before teaching. When a shell is available, inspect the same state
+directly:
+
+```text
+python .claude/skills/studyany/scripts/study_state.py --study-root .study status --json
+```
+
+If an existing workspace has no checkpoint, rebuild only the current pointer
+from its saved records:
+
+```text
+python .claude/skills/studyany/scripts/study_state.py --study-root .study rebuild
+```
+
+The rebuild reports missing historical session logs as unknown. It never
+estimates past minutes from conversation length.
+
 ## Uninstall And Migration
 
 Remove the current StudyAny installation for selected clients:

@@ -65,6 +65,53 @@ appropriate for it.
 }
 ```
 
+## checkpoint.json
+
+This is the mutable current-state pointer used to resume a new conversation.
+It is not a replacement for append-only evidence logs.
+
+```json
+{
+  "version": 1,
+  "state": "ready|partial|blocked",
+  "updated_at": "2026-08-03T19:00:00+08:00",
+  "subject": "example subject",
+  "current_stage_id": "stage-01",
+  "current_stage_title": "Foundations",
+  "last_activity_at": "2026-08-03T19:00:00+08:00",
+  "last_session_id": "session-2026-08-03-001",
+  "last_assessment_id": "assessment-2026-08-03-001",
+  "last_review_id": "review-2026-08-03-001",
+  "last_evidence": "Completed a changed-example task with a light cue",
+  "open_loops": [
+    {
+      "loop_id": "review-concept-01-unaided",
+      "kind": "retrieval|evidence_gap|artifact|stage_gate|setup",
+      "concept_id": "concept-01",
+      "status": "open|resolved|deferred",
+      "priority": "high|normal|low",
+      "due_on": "2026-08-04",
+      "summary": "Retrieve the idea without the previous cue",
+      "expected_evidence": "Unaided explanation or changed-example task",
+      "source_ref": "assessment-2026-08-03-001"
+    }
+  ],
+  "next_action": "Complete one unaided retrieval task",
+  "next_review": "2026-08-04",
+  "resume_instruction": "Restore open loops before new material",
+  "time_tracking": {
+    "source": "sessions.jsonl|unknown|missing",
+    "historical_minutes": null,
+    "note": "Historical session log is missing"
+  },
+  "warnings": []
+}
+```
+
+Update the checkpoint atomically after a session. Keep it concise and link
+claims to evidence IDs. A missing or rebuilt checkpoint must use `partial` and
+must list missing data instead of filling it with estimates.
+
 ## concepts.jsonl
 
 Each line represents the latest state for a concept. Historical changes belong
@@ -143,6 +190,7 @@ mastery by itself.
   "practice_score": 0.8,
   "confidence_before": 0.6,
   "confidence_after": 0.75,
+  "summary": "Completed a changed-example task with a light cue",
   "energy": null,
   "distraction": null,
   "evidence_refs": ["assessment-2026-08-03-001"],
@@ -159,7 +207,8 @@ mastery by itself.
 When the bundled clock is used, an open `in_progress` record is stored at
 `.study/active-session.json` until `stop` appends it to `sessions.jsonl`. Do
 not copy the open record into the history log manually or start a second
-session while it exists.
+session while it exists. The session ID is the idempotence key: if a stop is
+retried after the event was appended, do not append a duplicate.
 
 ## reviews.jsonl
 
