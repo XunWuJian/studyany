@@ -1,108 +1,149 @@
-# StudyAny Adaptive Learning Coach
+# StudyAny
 
-This package distributes the `adaptive-learning-coach` skill for Claude and
-Codex, with project-level Cursor support. It provides domain-agnostic tutoring,
-active practice, spaced review, progress tracking, and a local study clock.
+StudyAny is an AI-assisted learning skill for Claude and Codex. It turns a
+concrete learning goal into short lessons, active practice, evidence-based
+assessment, spaced review, and persistent local study records.
+
+The workflow chooses the medium that best demonstrates the current objective:
+conversation for explanation and recall, a learner workspace artifact for
+external work, or a mixture of both. It does not treat reading a lesson as
+proof of mastery.
 
 ## Global Install
 
-After publishing the package under an npm scope you own, users can install it
-like a global CLI-managed skill package:
+Install the published package from npm:
 
 ```text
-npm install -g @your-scope/adaptive-learning-coach@latest
+npm install -g studyany@latest --registry=https://registry.npmjs.org/
 ```
 
-The global postinstall hook copies the skill to:
+The postinstall step installs the skill at:
 
 ```text
-~/.claude/skills/adaptive-learning-coach/
-$CODEX_HOME/skills/adaptive-learning-coach/
+~/.claude/skills/studyany/
+$CODEX_HOME/skills/studyany/
 ```
 
-When `CODEX_HOME` is not set, the Codex target defaults to `~/.codex/skills`.
-Claude also receives the personal `/learn` command at `~/.claude/commands/learn.md`.
+When `CODEX_HOME` is not set, the Codex target defaults to
+`~/.codex/skills/studyany/`. Claude also receives the `/learn` command at
+`~/.claude/commands/learn.md`.
 
 The explicit equivalent is:
 
 ```text
-npx @your-scope/adaptive-learning-coach install --scope global --client claude,codex
+studyany install --scope global --client claude,codex
 ```
 
-Upgrade with the same global command:
+Restart Claude Code or Codex after installing so the client reloads its skill
+catalog.
+
+## Start A Session
+
+In Claude Code, use natural language or the installed command:
 
 ```text
-npm install -g @your-scope/adaptive-learning-coach@latest
+/learn I want to reach a concrete learning goal. Start with a short diagnostic.
 ```
 
-The package name in `package.json` must be changed from the local development
-name to the name and scope you own before `npm publish`.
-
-## Starting A Session
-
-In Claude Code, use either natural language or the installed command:
+In Codex, use natural language or explicitly mention the skill:
 
 ```text
-/learn Python from zero; my goal is to build a Web API.
+Use the studyany skill. Start a study session for my current learning goal.
 ```
 
-In Codex, the stable interface is the installed global skill. Use natural
-language or explicitly mention it:
-
-```text
-Use the adaptive-learning-coach skill. Start a study session for Python.
-```
-
-Codex does not share Claude's personal `.claude/commands` directory, so the
-package does not invent a non-portable Codex slash-command location.
+The skill records time through the bundled study clock when a shell is
+available. It will not claim a precise duration, completed work, or mastery
+without corresponding evidence.
 
 ## Project Install
 
-For a single project, install the package without `-g`:
+For one project, install the package without `-g`:
 
 ```text
-npm install --save-dev @your-scope/adaptive-learning-coach
+npm install --save-dev studyany
 ```
 
-Project postinstall copies the skill to `.claude/skills` and `.cursor/skills`,
-and installs `.claude/commands/learn.md`.
+Project postinstall copies the skill to `.claude/skills/studyany/` and
+`.cursor/skills/studyany/`, and installs `.claude/commands/learn.md`.
 
 To select one client explicitly:
 
 ```text
-npx @your-scope/adaptive-learning-coach install --scope project --client claude
-npx @your-scope/adaptive-learning-coach install --scope project --client cursor
+npx studyany install --scope project --client claude
+npx studyany install --scope project --client cursor
 ```
 
 Inspect targets without writing files:
 
 ```text
-npx @your-scope/adaptive-learning-coach install --scope global --dry-run
+studyany install --scope global --dry-run
 ```
 
 If npm lifecycle scripts are disabled, install with `--ignore-scripts` and run
 the explicit installer afterward. Set `STUDYANY_SKIP_INSTALL=1` to skip the
 automatic postinstall path.
 
+## Artifact-Based Practice
+
+When the objective needs work outside the conversation, StudyAny identifies a
+workspace and gives the learner a concrete handoff:
+
+```text
+Workspace: <where to work>
+Artifact: <file, tool state, or external reference>
+Learner action: <the exact task>
+Review evidence: <what to return or what can be inspected>
+```
+
+It prefers existing learner material. When a starter is needed, it creates a
+minimal non-destructive file under `.study/artifacts/` and records its status,
+path, session, and review evidence in `.study/artifacts.jsonl`. The starter is
+scaffolding, not proof that the learner has mastered the objective.
+
+## Uninstall And Migration
+
+Remove the current StudyAny installation for selected clients:
+
+```text
+studyany uninstall --scope global --client claude,codex --dry-run
+studyany uninstall --scope global --client claude,codex
+```
+
+For a project installation, use `--scope project` and the relevant client.
+Uninstall removes only the new `studyany` skill and the managed Claude
+`learn.md` command. A normal upgrade never deletes the old
+`adaptive-learning-coach` directory. After verifying the new skill works,
+remove any old directory manually if it remains:
+
+```text
+~/.claude/skills/adaptive-learning-coach/
+$CODEX_HOME/skills/adaptive-learning-coach/
+```
+
+On Windows, the default Codex path is
+`%USERPROFILE%\.codex\skills\adaptive-learning-coach\` when `CODEX_HOME` is
+not set. Keep the old copy only if another project still depends on it.
+
 ## Publish
 
 ```text
 npm login
 npm version patch
-npm publish --access public
+npm publish --access public --registry=https://registry.npmjs.org/
 ```
 
-Use `npm publish` without `--access public` for an unscoped package or a
-private package according to your npm organization settings.
+The package name is the unscoped `studyany`; publishing requires an npm
+account with permission for that package and the registry's current
+authentication requirements.
 
 ## Study Clock
 
 The skill calls the bundled Python script when a shell tool is available:
 
 ```text
-python .claude/skills/adaptive-learning-coach/scripts/study_clock.py start --subject "example" --mode lesson --objective "Complete one practice task"
-python .claude/skills/adaptive-learning-coach/scripts/study_clock.py status
-python .claude/skills/adaptive-learning-coach/scripts/study_clock.py stop --status complete --next-action "Review the errors"
+python .claude/skills/studyany/scripts/study_clock.py start --subject "example" --mode lesson --objective "Complete one practice task"
+python .claude/skills/studyany/scripts/study_clock.py status
+python .claude/skills/studyany/scripts/study_clock.py stop --status complete --next-action "Review the evidence"
 ```
 
 On Windows, use `py -3` if `python` is not on `PATH`. The script writes an

@@ -1,9 +1,9 @@
 ---
-name: adaptive-learning-coach
-description: "Use this skill whenever a user wants to learn, study, practice, review, plan a course, track learning time, measure progress, or build a skill in any domain. It provides adaptive tutoring, generated lessons, active practice, assessments, spaced review, and persistent study records. Trigger even when the user does not call it a skill or ask for a formal study plan."
+name: studyany
+description: "Use this skill when a learner wants structured teaching, practice, review, progress tracking, or help reaching a concrete learning goal. It turns the goal into observable evidence, adapts instruction and difficulty from learner performance, records study sessions, and schedules retrieval-based review. Trigger even when the learner does not name a skill or ask for a formal plan."
 ---
 
-# Adaptive Learning Coach
+# StudyAny
 
 Act as a structured learning coach, tutor, practice partner, and progress
 analyst. Help the learner build durable understanding and usable skill, not
@@ -35,7 +35,9 @@ Read only the reference needed for the current operation:
 - New learner, new subject, or roadmap request: read `references/learning-protocol.md`
   and `references/domain-modes.md`.
 - Lesson, tutoring, or practice request: read `references/learning-protocol.md`
-  and the relevant section of `references/domain-modes.md`.
+  and the relevant section of `references/domain-modes.md`. When the expected
+  evidence may be better produced outside the conversation, also read
+  `references/artifact-workflow.md`.
 - Review or scheduling request: read `references/review-scheduler.md`.
 - Logging, reports, or progress requests: read `references/record-schema.md`
   and `references/assessment-rubrics.md`.
@@ -55,6 +57,7 @@ Look for `.study/` in the current workspace. The expected files are:
 ├── sessions.jsonl
 ├── reviews.jsonl
 ├── assessments.jsonl
+├── artifacts.jsonl
 └── dashboard.md
 ```
 
@@ -90,10 +93,10 @@ Collect only the information needed to start:
 4. Deadline, available sessions, and preferred session length.
 5. Relevant materials, exam outline, project brief, or constraints.
 
-Convert vague goals into evidence-based outcomes. For example, replace
-"learn photography" with "take and explain three correctly exposed photos in
-different lighting conditions". Preserve the learner's original goal in the
-profile and record the operational version in `goals.json`.
+Convert vague goals into evidence-based outcomes: define what the learner will
+independently produce or perform, under which conditions, and to what quality
+bar. Preserve the learner's original goal in the profile and record the
+operational version in `goals.json`.
 
 ## Roadmap behavior
 
@@ -118,16 +121,32 @@ Use this sequence unless the domain requires a documented variation:
 2. State one or two objectives and the evidence that will demonstrate them.
 3. Ask a short recall or prediction question.
 4. Explain only the missing idea, with a concrete example.
-5. Give a guided task with hints available in levels.
-6. Give an independent task that differs from the example.
-7. Give feedback tied to the rubric or expected result.
-8. Ask the learner to retry or explain the correction.
-9. Run an exit check and record uncertainty.
-10. Schedule the next review and state the next action.
+5. Select conversation, artifact, or mixed practice according to the
+   evidence required. Read `references/artifact-workflow.md` for the artifact
+   path when the task requires work outside the conversation.
+6. Give a guided task with hints available in levels.
+7. Give an independent task that differs from the example.
+8. Give feedback tied to the rubric or expected result.
+9. Ask the learner to retry or explain the correction.
+10. Run an exit check and record uncertainty.
+11. Schedule the next review and state the next action.
 
-For code or other executable work, encourage the learner to run or perform
-the task and report the result. Do not pretend to have executed something when
-no execution evidence is available.
+For executable, manipulative, or externally observed work, encourage the
+learner to perform the task and report or return the result. Do not pretend to
+have edited, executed, inspected, or observed something when no evidence is
+available.
+
+When an artifact or mixed workflow is selected, the lesson output must state:
+
+```text
+Workspace: <workspace path or none>
+Artifact: <artifact path or external reference>
+Learner action: <what the learner must edit, perform, or return>
+Review evidence: <file, diff, output, result, explanation, or observation>
+```
+
+Use the artifact workflow only when it improves the evidence. Do not create a
+file merely to make a conversational lesson look more concrete.
 
 ## Hints and answers
 
@@ -173,6 +192,9 @@ timestamp or clearly labeled user estimate.
 Append a session record even when the learner performs poorly. Record planned
 time separately from actual time. Count active recall, practice, feedback, and
 output as evidence-bearing activity; report passive reading separately.
+When a lesson uses an artifact, append or update its artifact record and link
+the artifact to the session and assessment. Artifact metadata must not be used
+to infer time or mastery without learner evidence.
 
 ## Assessment and mastery
 
@@ -235,6 +257,11 @@ Mode: lesson
 Subject: <subject>
 Objective: <observable objective>
 Evidence today: <what the learner must produce>
+Medium: conversation | artifact | mixed
+Workspace: <workspace path or none>
+Artifact: <artifact path or external reference, if used>
+Learner action: <what the learner must do>
+Review evidence: <what the learner should return or what can be inspected>
 
 <short explanation and interactive task>
 

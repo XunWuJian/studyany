@@ -1,10 +1,10 @@
 {
   "name": "studyany",
-  "version": "0.1.0",
-  "description": "A domain-agnostic adaptive learning coach skill with study-time tracking.",
+  "version": "0.1.1",
+  "description": "An AI-assisted learning coach skill with study-time tracking and artifact-based practice.",
   "type": "module",
   "bin": {
-    "studyany-adaptive-learning-coach": "bin/install.mjs"
+    "studyany": "bin/install.mjs"
   },
   "files": [
     "skill/",

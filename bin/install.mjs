@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 
-import { cp, mkdir, readdir, stat } from "node:fs/promises";
+import { cp, mkdir, readdir, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = path.join(PACKAGE_ROOT, "skill", "adaptive-learning-coach");
+const SKILL_NAME = "studyany";
+const SOURCE = path.join(PACKAGE_ROOT, "skill", SKILL_NAME);
 const COMMAND_SOURCE = path.join(PACKAGE_ROOT, "commands", "learn.md");
 
 function printHelp() {
   console.log(`Usage:
-  studyany-adaptive-learning-coach install [options]
+  studyany install [options]
+  studyany uninstall [options]
 
 Scopes:
   --scope project     install in the current project (default for npm dependency install)
@@ -23,10 +25,11 @@ Options:
   --help              show this help
 
 Examples:
-  npm install -g studyany-adaptive-learning-coach@latest
-  npx studyany-adaptive-learning-coach install --scope global --client claude,codex
-  npx studyany-adaptive-learning-coach install --scope project --client claude,cursor
-  npx studyany-adaptive-learning-coach install --scope global --dry-run`);
+  npm install -g studyany@latest
+  studyany install --scope global --client claude,codex
+  studyany install --scope project --client claude,cursor
+  studyany install --scope global --dry-run
+  studyany uninstall --scope global --client claude,codex --dry-run`);
 }
 
 function defaultScope() {
@@ -43,11 +46,18 @@ function parseArgs(argv) {
     clients: null,
     dryRun: false,
     help: false,
+    command: "install",
     scope: defaultScope()
   };
 
   let index = 0;
-  if (argv[0] === "install") index += 1;
+  if (argv[0] && !argv[0].startsWith("--")) {
+    options.command = argv[0];
+    index += 1;
+  }
+  if (!new Set(["install", "uninstall"]).has(options.command)) {
+    throw new Error(`unknown command: ${options.command}`);
+  }
   while (index < argv.length) {
     const arg = argv[index];
     if (arg === "--auto") {
@@ -128,8 +138,8 @@ function projectRoots() {
 function targetFor(scope, client) {
   const root = scope === "global" ? globalRoots()[client] : projectRoots()[client];
   const skillDirectory = scope === "global" || client === "codex"
-    ? path.join(root, "skills", "adaptive-learning-coach")
-    : path.join(root, `.${client}`, "skills", "adaptive-learning-coach");
+    ? path.join(root, "skills", SKILL_NAME)
+    : path.join(root, `.${client}`, "skills", SKILL_NAME);
   const commandDirectory = client === "claude"
     ? scope === "global"
       ? path.join(root, "commands")
@@ -140,7 +150,7 @@ function targetFor(scope, client) {
 
 function assertInsideRoot(root, destination) {
   const relative = path.relative(path.resolve(root), path.resolve(destination));
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new Error(`refusing to write outside selected root: ${destination}`);
   }
 }
@@ -170,6 +180,26 @@ async function install(options) {
   if (!options.dryRun) console.log(`${options.scope} skill installation complete.`);
 }
 
+async function uninstall(options) {
+  for (const client of options.clients) {
+    const target = targetFor(options.scope, client);
+    assertInsideRoot(target.root, target.skillDirectory);
+    if (target.commandPath) assertInsideRoot(target.root, target.commandPath);
+    const verb = options.dryRun ? "Would remove" : "Removing";
+    console.log(`${verb} ${client} skill: ${target.skillDirectory}`);
+    if (options.dryRun) {
+      if (target.commandPath) console.log(`  ${target.commandPath}`);
+      continue;
+    }
+    await rm(target.skillDirectory, { recursive: true, force: true });
+    if (target.commandPath) {
+      await rm(target.commandPath, { force: true });
+      console.log(`Removing Claude command: ${target.commandPath}`);
+    }
+  }
+  if (!options.dryRun) console.log(`${options.scope} skill uninstallation complete.`);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -180,7 +210,11 @@ async function main() {
     console.log("Automatic skill installation skipped by STUDYANY_SKIP_INSTALL=1.");
     return;
   }
-  await install(options);
+  if (options.command === "uninstall") {
+    await uninstall(options);
+  } else {
+    await install(options);
+  }
 }
 
 const auto = process.argv.includes("--auto");
@@ -190,7 +224,7 @@ try {
   const message = error instanceof Error ? error.message : String(error);
   if (auto) {
     console.warn(`Automatic skill installation was not completed: ${message}`);
-    console.warn("Run the package command explicitly after installation: npx studyany-adaptive-learning-coach install --scope global");
+    console.warn("Run the package command explicitly after installation: studyany install --scope global");
   } else {
     console.error(`Skill installation failed: ${message}`);
     process.exitCode = 1;

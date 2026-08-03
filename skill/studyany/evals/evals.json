@@ -1,5 +1,5 @@
 {
-  "skill_name": "adaptive-learning-coach",
+  "skill_name": "studyany",
   "evals": [
     {
       "id": 1,
@@ -20,6 +20,13 @@
       "name": "practical-skill-recovery",
       "prompt": "I want to learn photography, but I missed the last two study sessions and now feel behind. I have a camera and can practice for 20 minutes tonight. Help me recover without restarting everything. Give me one safe practical exercise and record the short session using an estimated duration if needed.",
       "expected_output": "The skill enters recovery mode, preserves prior history, reduces scope to a minimum viable practical task, uses a practical/creative mode with observable evidence, avoids shaming, and labels duration as a user estimate when no timestamps are available.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "artifact-medium-selection",
+      "prompt": "I need to learn a workflow whose quality can only be shown by editing or operating something outside the chat. Start with the smallest useful lesson and do not pretend the external work is complete. If a starter is needed, give me a non-destructive workspace path, learner action, and review evidence.",
+      "expected_output": "The skill chooses an artifact or mixed medium from the evidence requirement, prefers existing learner material, provides a clear workspace handoff when needed, waits for an attempt or result, and records missing execution evidence honestly.",
       "files": []
     }
   ]

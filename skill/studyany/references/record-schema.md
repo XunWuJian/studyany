@@ -93,6 +93,35 @@ in `assessments.jsonl` and `reviews.jsonl`.
 Mastery is a current estimate. It must be updated only with an evidence
 reference and should move slowly when evidence is sparse.
 
+## artifacts.jsonl
+
+Each line records the lifecycle and evidence linkage of a learner workspace
+item. Do not copy the artifact contents into the log.
+
+```json
+{
+  "artifact_id": "artifact-2026-08-03-001",
+  "session_id": "session-2026-08-03-001",
+  "subject": "example subject",
+  "kind": "file|external_result|procedure|performance|other",
+  "workspace": ".",
+  "path": ".study/artifacts/goal-slug/starter.ext",
+  "external_ref": null,
+  "status": "planned|in_progress|submitted|reviewed|abandoned|missing_evidence",
+  "created_at": "2026-08-03T19:00:00+08:00",
+  "updated_at": "2026-08-03T19:30:00+08:00",
+  "learner_action": "Complete the defined task",
+  "expected_evidence": "A saved result plus a short explanation",
+  "evidence_refs": ["assessment-2026-08-03-001"],
+  "review_notes": "First consequential error and correction"
+}
+```
+
+Use a project-relative `path` when possible. Use `external_ref` for a result
+that is not represented by a local path, and use `null` for unavailable values.
+The artifact record describes evidence state; it does not establish duration or
+mastery by itself.
+
 ## sessions.jsonl
 
 ```json
@@ -105,6 +134,7 @@ reference and should move slowly when evidence is sparse.
   "duration_min": 45,
   "duration_source": "clock|timestamps|user_estimate|unknown",
   "status": "complete|interrupted|planned|in_progress",
+  "evidence_mode": "conversation|artifact|mixed",
   "planned_minutes": null,
   "objectives": ["objective-01"],
   "active_minutes": 35,
@@ -116,6 +146,7 @@ reference and should move slowly when evidence is sparse.
   "energy": null,
   "distraction": null,
   "evidence_refs": ["assessment-2026-08-03-001"],
+  "artifact_ids": ["artifact-2026-08-03-001"],
   "mistakes": ["misconception or error category"],
   "next_action": "Complete one transfer task",
   "next_review": "2026-08-06"
@@ -163,7 +194,8 @@ session while it exists.
       "score": 0.75,
       "confidence_before": 0.6,
       "hint_level": 1,
-      "feedback": "Identify the missing prerequisite"
+      "feedback": "Identify the missing prerequisite",
+      "artifact_id": null
     }
   ],
   "summary": "Partial application; revisit the prerequisite",
@@ -175,5 +207,5 @@ session while it exists.
 
 This file is derived from the logs. Include the generation date, subject
 filters, time totals, evidence trends, due reviews, recurring errors, current
-stage, and next actions. Never use it to overwrite raw events without an
-explicit reconciliation step.
+stage, artifact status, and next actions. Never use it to overwrite raw events
+without an explicit reconciliation step.

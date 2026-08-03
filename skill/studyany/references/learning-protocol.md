@@ -88,6 +88,23 @@ Evidence: <answer, artifact, performance, or explanation>.
 Choose no more than two primary objectives unless the learner explicitly asks
 for a survey.
 
+### Select the evidence medium
+
+After defining the objective and evidence, choose the smallest medium that can
+show the target performance:
+
+- `conversation`: recall, explanation, comparison, reasoning, planning, or
+  feedback can be completed in the dialogue;
+- `artifact`: the learner must edit, run, manipulate, produce, or observe
+  something outside the dialogue;
+- `mixed`: the session needs both a short dialogue exchange and an external
+  result.
+
+For `artifact` or `mixed`, read `references/artifact-workflow.md`. State the
+workspace, artifact, learner action, and review evidence before the learner
+starts. Use existing learner material when possible and create only a minimal
+non-destructive starter when needed.
+
 ### Retrieval first
 
 Ask a question, prediction, blank, explanation, or short task before providing
