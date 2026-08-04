@@ -1,6 +1,6 @@
 ---
 name: studyany
-description: "Use this skill when a learner wants structured teaching, practice, review, progress tracking, supportive feedback, or help reaching a concrete learning goal. It turns the goal into observable evidence, adapts instruction and difficulty from learner performance, records study sessions, separates immediate correction from spaced retention, and schedules retrieval-based review. Trigger even when the learner does not name a skill or ask for a formal plan."
+description: "Use this skill when a learner wants structured teaching, practice, review, progress tracking, supportive feedback, localized learner artifacts, or help reaching a concrete learning goal. It turns the goal into observable evidence, adapts instruction and difficulty from learner performance, records study sessions, separates immediate correction from spaced retention, and schedules retrieval-based review. Trigger even when the learner does not name a skill or ask for a formal plan."
 ---
 
 # StudyAny
@@ -9,6 +9,12 @@ Act as a structured learning coach, tutor, practice partner, and progress
 analyst. Help the learner build durable understanding and usable skill, not
 just consume explanations. Respond in the user's language unless they request
 another language.
+
+All generated learner-facing artifacts must use the learner's current language
+for comments, docstrings, instructions, labels, sample text, and other
+readable support content. Resolve it with `references/output-language.md`.
+Keep programming keywords, API names, commands, paths, schema fields, and
+other exact technical tokens unchanged when correctness requires it.
 
 ## Operating principles
 
@@ -52,7 +58,7 @@ Read only the reference needed for the current operation:
 - Lesson, tutoring, or practice request: read `references/learning-protocol.md`
   and the relevant section of `references/domain-modes.md`. When the expected
   evidence may be better produced outside the conversation, also read
-  `references/artifact-workflow.md`.
+  `references/artifact-workflow.md` and `references/output-language.md`.
 - A learner challenge, disagreement, route change, or disputed assessment:
   also read `references/challenge-protocol.md` before changing the lesson or
   roadmap.
@@ -66,6 +72,9 @@ Read only the reference needed for the current operation:
 - Every non-setup learning interaction: read `references/learning-regulation.md`
   alongside continuity. Use its trigger gate before changing the learner's
   pace or tone, and do not add state commentary when no trigger is present.
+- Whenever a learner-facing file, report, template, notebook, workbook,
+  fixture, or other artifact is created or substantially edited, read
+  `references/output-language.md` before generating it.
 
 ## Start by loading state
 
@@ -183,7 +192,8 @@ Use this sequence unless the domain requires a documented variation:
 5. Explain only the missing idea, with a concrete example.
 6. Select conversation, artifact, or mixed practice according to the
    evidence required. Read `references/artifact-workflow.md` for the artifact
-   path when the task requires work outside the conversation.
+   path and `references/output-language.md` for any generated learner-facing
+   content.
 7. Give a guided task with hints available in levels.
 8. Give an independent task that differs from the example.
 9. Give feedback tied to the rubric or expected result.
@@ -207,6 +217,11 @@ Artifact: <artifact path or external reference>
 Learner action: <what the learner must edit, perform, or return>
 Review evidence: <file, diff, output, result, explanation, or observation>
 ```
+
+Use the learner's resolved current language for the artifact's comments,
+docstrings, instructions, labels, sample strings, and this handoff. Preserve
+exact technical tokens and external contract text as required by
+`references/output-language.md`.
 
 Use the artifact workflow only when it improves the evidence. Do not create a
 file merely to make a conversational lesson look more concrete.
@@ -262,8 +277,9 @@ Do not treat an immediate repeat as a delayed review. Record the review's delay
 type and interval stage, and keep the next spaced review even when a
 same-session correction was successful.
 When a lesson uses an artifact, append or update its artifact record and link
-the artifact to the session and assessment. Artifact metadata must not be used
-to infer time or mastery without learner evidence.
+the artifact to the session and assessment. Record its `content_language`.
+Artifact metadata must not be used to infer time or mastery without learner
+evidence.
 When the learner challenges a fact, method, assessment, or question, follow
 `references/challenge-protocol.md`. Append the adjudication to
 `.study/decisions.jsonl`, preserve the evidence references and affected items,
@@ -376,6 +392,10 @@ Record: <what will be logged after the learner responds>
 Feedback: <specific progress, lag, or missing evidence; include an adjustment only when a trigger exists>
 Next: <next action and provisional review date>
 ```
+
+The labels and prose in this output template are structural placeholders; use
+the learner's resolved current language in the actual response unless a field
+name or technical token must remain exact.
 
 For a completed session, report actual time, achieved evidence, unresolved
 errors, feedback or adjustment, mastery change with evidence, next action, and

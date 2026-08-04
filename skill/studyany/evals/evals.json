@@ -112,6 +112,13 @@
       "prompt": "I explicitly ask for a small playful celebration after I complete a delayed transfer task, but I do not want gamification to replace evidence. Celebrate briefly, show the evidence dimension and next review, and do not create a webpage unless it is useful and requested.",
       "expected_output": "The skill uses an optional brief celebration tied to delayed transfer evidence, keeps the review and evidence requirements visible, avoids an ability or discipline score, and does not generate decorative files automatically.",
       "files": []
+    },
+    {
+      "id": 17,
+      "name": "localized-generated-artifact",
+      "prompt": "I am a Chinese-speaking learner studying Python. Create a small starter file for today's exercise. Use Chinese for comments, docstrings, instructions, sample messages, and the file handoff, while keeping Python keywords, standard API names, commands, and required identifiers exact. Record the artifact language.",
+      "expected_output": "The skill resolves the learner language from the current context or profile, creates or edits the visible artifact with learner-readable content in Chinese, preserves executable technical tokens, uses Chinese in the handoff, and records content_language as zh-CN.",
+      "files": []
     }
   ]
 }

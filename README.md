@@ -108,8 +108,11 @@ It prefers existing learner material. When a starter is needed, it creates a
 minimal non-destructive file under the visible project-root directory
 `studyany-artifacts/<goal>/` by default, or in the learner's chosen project
 path. It records the file's status, path, session, and review evidence in
-`.study/artifacts.jsonl`. `.study/` is metadata-only. The starter is
-scaffolding, not proof that the learner has mastered the objective.
+`.study/artifacts.jsonl`. Comments, instructions, labels, sample text, and
+other learner-readable content in generated artifacts use the learner's
+current language. Required code keywords, API names, commands, and interface
+fields remain exact. `.study/` is metadata-only. The starter is scaffolding,
+not proof that the learner has mastered the objective.
 
 ## Persistent Study State
 

@@ -20,6 +20,21 @@ Use `mixed` when the learner needs a short explanation or retrieval exchange
 and an external result. This is the default for many procedural tasks, but do
 not force it when conversation alone is sufficient.
 
+## Resolve the artifact language
+
+Before creating or substantially editing an artifact, read
+`references/output-language.md`. Resolve the language from the learner's
+current request, `profile.json.language`, or the current conversation. Use it
+for comments, docstrings, instructions, labels, sample text, notebook prose,
+spreadsheet notes, and the artifact handoff. Keep code keywords, API names,
+commands, identifiers required by an existing project, paths, schema fields,
+and exact contract output unchanged when they must remain interoperable.
+
+Do not translate an existing non-empty file automatically. Preserve its
+language and style unless the learner requests translation; new companion
+files use the resolved language. A mixed-language artifact must have a stated
+technical reason for each exception.
+
 ## Prepare the workspace
 
 1. Check whether the learner already supplied a file, project, workbook,
@@ -44,6 +59,9 @@ not force it when conversation alone is sufficient.
 6. A starter is not evidence of mastery. Leave meaningful decisions and work
    for the learner unless the objective explicitly calls for analysis of a
    provided example.
+7. Before handing off the file, check that learner-readable content uses the
+   resolved language and record that language as `content_language` in the
+   artifact event.
 
 ## Give the learner a usable handoff
 
@@ -64,6 +82,12 @@ Artifact: studyany-artifacts/topic-name/starter.py
 Learner action: Open the file from the project root and complete the marked task
 Review evidence: Return the diff or execution output
 ```
+
+The English wording in this structural example is a placeholder only. Replace
+the labels and prose with the resolved learner language in the actual handoff.
+The path, learner action, review evidence, comments, and instructions in the
+handoff must use the same resolved learner language. Preserve exact technical
+tokens in paths, commands, code, and external contract text.
 
 The learner action should be small enough for the current session and should
 include a quality bar or completion condition. If a command, application, or
@@ -102,4 +126,5 @@ planned -> in_progress -> submitted -> reviewed
 Use `abandoned` when the task is intentionally dropped. Link the artifact to
 the current session and any assessment. Record the path or external reference,
 kind, learner action, expected evidence, review status, and evidence reference;
-do not duplicate the full artifact contents in `.study/` logs.
+record `content_language`; do not duplicate the full artifact contents in
+`.study/` logs.

@@ -34,6 +34,12 @@ and respond with one calm, evidence-based change. Otherwise do not infer a
 psychological state. End with one concrete next action and a review date when
 evidence supports one, then persist the result and checkpoint before ending.
 
+When generating or substantially editing a learner-facing artifact, use the
+learner's current language for comments, docstrings, instructions, labels,
+sample text, and the handoff. Preserve exact programming keywords, API names,
+commands, paths, schema fields, and external contract text. Record the chosen
+language as `content_language` in the artifact record.
+
 Learner-editable artifacts must be placed in a visible project-root path. Use
 `studyany-artifacts/<goal>/` when no project path was supplied; reserve
 `.study/` for learning metadata and logs.

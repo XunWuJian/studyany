@@ -25,6 +25,11 @@ do not replace unknown data with a guessed value.
 }
 ```
 
+`language` is the learner-facing language preference, preferably a BCP 47-style
+value such as `zh-CN` or `en`. It is not the programming language or subject
+language. An explicit language request in the current turn takes precedence
+for newly generated output.
+
 Store only information needed to coach the learner. Do not store sensitive
 personal data unless the learner explicitly asks and the local environment is
 appropriate for it.
@@ -175,6 +180,7 @@ item. Do not copy the artifact contents into the log.
   "artifact_id": "artifact-2026-08-03-001",
   "session_id": "session-2026-08-03-001",
   "subject": "example subject",
+  "content_language": "zh-CN",
   "kind": "file|external_result|procedure|performance|other",
   "workspace": ".",
   "path": "studyany-artifacts/goal-slug/starter.ext",
