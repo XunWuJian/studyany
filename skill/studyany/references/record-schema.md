@@ -13,8 +13,12 @@ do not replace unknown data with a guessed value.
   "language": "en",
   "timezone": "Asia/Shanghai",
   "available_minutes_per_week": 240,
+  "target_minutes_per_week": 180,
+  "target_sessions_per_week": 4,
+  "target_study_days": ["Mon", "Tue", "Thu", "Sat"],
   "preferred_session_minutes": 45,
   "minimum_session_minutes": 10,
+  "maximum_session_minutes": 75,
   "feedback_preferences": {
     "tone": "warm_direct",
     "celebrate_milestones": true,
@@ -33,6 +37,83 @@ for newly generated output.
 Store only information needed to coach the learner. Do not store sensitive
 personal data unless the learner explicitly asks and the local environment is
 appropriate for it.
+
+`available_minutes_per_week` describes capacity and is not a commitment.
+`target_minutes_per_week`, `target_sessions_per_week`, and
+`target_study_days` are optional commitments used by the deterministic
+analytics report. If no target is configured, report `not_configured` rather
+than treating the learner as behind. `maximum_session_minutes` is an optional
+elapsed-time ceiling used for pacing alerts; it is not a measure of active
+attention.
+
+## analytics projection
+
+The bundled `scripts/study_analytics.py` derives this non-authoritative
+projection from the raw records. It is included in `study_state.py status
+--json` and may be regenerated at any time; do not append it as a historical
+event:
+
+```json
+{
+  "version": 1,
+  "as_of": "2026-08-04",
+  "window": {
+    "kind": "week",
+    "start": "2026-08-03",
+    "end": "2026-08-09",
+    "elapsed_days": 2
+  },
+  "data_quality": {
+    "status": "complete|partial|insufficient_data",
+    "reasons": []
+  },
+  "time": {
+    "actual_minutes": 45,
+    "measurement_status": "measured|no_sessions|unknown",
+    "session_count": 1,
+    "session_count_status": "known|unknown",
+    "measured_session_count": 1,
+    "unknown_duration_count": 0,
+    "unknown_timestamp_count": 0,
+    "study_days": 1,
+    "planned_minutes": 45,
+    "overlong_sessions": []
+  },
+  "pacing": {
+    "target_status": "configured|not_configured",
+    "minute_status": "early_week|on_track|behind_pace|above_plan|insufficient_data|not_configured",
+    "session_status": "early_week|on_track|behind_pace|insufficient_data|not_configured",
+    "day_status": "on_track|behind_pace|insufficient_data|not_configured"
+  },
+  "reviews": {
+    "due_count": 0,
+    "overdue_count": 0,
+    "delayed_pass_rate": null,
+    "transfer_pass_rate": null,
+    "capacity": {"status": "not_configured"},
+    "delayed_decay": []
+  },
+  "learning_curve": {
+    "understanding": {"status": "insufficient_data"},
+    "retrieval": {"status": "building"},
+    "application": {"status": "fragile"},
+    "transfer": {"status": "insufficient_data"},
+    "retention": {"status": "insufficient_data"}
+  },
+  "alerts": [],
+  "recommendation": {
+    "code": "none|review_due|take_break|schedule_minimum_session|collect_evidence",
+    "reason": "",
+    "evidence_refs": []
+  }
+}
+```
+
+Stable alert codes include `overlong_session`, `maximum_exceeded`,
+`behind_pace`, `above_plan`, `frequency_gap`, `review_backlog`,
+`delayed_decay`, `fragile_progress`, `stalled_progress`, and
+`overload_risk`. `insufficient_data`, `no_target`, and missing-duration notes
+are data-quality states, not failure judgments.
 
 ## goals.json
 

@@ -11,6 +11,7 @@
     "skill/studyany/references/",
     "skill/studyany/evals/",
     "skill/studyany/scripts/study_clock.py",
+    "skill/studyany/scripts/study_analytics.py",
     "skill/studyany/scripts/study_state.py",
     "bin/",
     "commands/",

@@ -99,3 +99,12 @@ review and classify the pattern as delayed decay. If the learner retains items
 consistently, avoid unnecessary reviews and allocate time to transfer tasks.
 Also check whether the learner is receiving useful corrective feedback without
 being interrupted by unnecessary state commentary.
+
+When `scripts/study_analytics.py` is available, use its `due_count`,
+`overdue_count`, `delayed_pass_rate`, `transfer_pass_rate`, `failure_streaks`,
+`delayed_decay`, and `capacity` projection in the weekly report. Capacity is a
+rough planning estimate based on the configured target and preferred session;
+it does not claim that a fixed number of items fits every session. Same-session
+corrections remain excluded from the delayed metrics. If the projection reports
+`insufficient_data`, identify the missing delayed attempt instead of treating
+the item as failed.

@@ -46,6 +46,9 @@ other exact technical tokens unchanged when correctness requires it.
   new method on demand.
 - Do not fabricate timestamps, scores, source claims, completed work, or
   reminders. Label estimates and missing evidence explicitly.
+- Treat computed analytics as evidence about the study process, not as a
+  diagnosis or a single learner score. Distinguish `not_configured`,
+  `insufficient_data`, and a measured `behind_pace` result.
 - Adapt examples, difficulty, and activity type to the subject and learner.
 - Keep a visible next action so each session can resume without re-planning.
 
@@ -72,6 +75,9 @@ Read only the reference needed for the current operation:
 - Every non-setup learning interaction: read `references/learning-regulation.md`
   alongside continuity. Use its trigger gate before changing the learner's
   pace or tone, and do not add state commentary when no trigger is present.
+- For a report, pacing adjustment, or session closeout, use the `analytics`
+  projection returned by `scripts/study_state.py status --json`; read its data
+  quality before acting on an alert.
 - Whenever a learner-facing file, report, template, notebook, workbook,
   fixture, or other artifact is created or substantially edited, read
   `references/output-language.md` before generating it.
@@ -114,10 +120,13 @@ At the start of every non-setup interaction, follow
 `references/continuity-protocol.md`. When a shell is available, run
 `scripts/study_state.py status --json` and use its output to restore the
 current stage, last evidence, latest feedback, due reviews, open loops, next
-action, and time tracking status. Present a short `Resume` block before
-teaching. Do not ask the learner to repeat a goal or diagnostic that is already
-persisted. A previous coaching event is a historical adjustment, not a current
-mood or ability label; recheck the current evidence before applying it.
+action, time tracking status, and analytics projection. Present a short
+`Resume` block before teaching. Include only relevant analytics: data quality,
+current pace, due/overdue reviews, evidence trend labels, and the highest
+priority alert or recommendation. Do not ask the learner to repeat a goal or
+diagnostic that is already persisted. A previous coaching event is a
+historical adjustment, not a current mood or ability label; recheck the current
+evidence before applying it.
 
 At closeout, persist the observed result and update `checkpoint.json` with the
 next action and unresolved evidence. A message that only describes what should
@@ -151,7 +160,9 @@ Collect only the information needed to start:
 2. Desired outcome stated as an observable performance.
 3. Current experience or a short diagnostic.
 4. Deadline, available sessions, and preferred session length.
-5. Relevant materials, exam outline, project brief, or constraints.
+5. If the learner wants adherence alerts, an explicit weekly target, target
+   session count, target study days, and optional maximum session length.
+6. Relevant materials, exam outline, project brief, or constraints.
 
 Convert vague goals into evidence-based outcomes: define what the learner will
 independently produce or perform, under which conditions, and to what quality
@@ -266,9 +277,18 @@ Use `py -3` on Windows when `python` is unavailable. The script stores an open
 session in `.study/active-session.json` and appends the completed event to
 `.study/sessions.jsonl`. On a later turn, check `status` before starting a new
 session. During a long interaction, check `status` before another major work
-block and before closeout so pacing triggers use the system clock. If the
-script cannot be executed, use the same state rules with a timestamp or
-clearly labeled user estimate.
+block and before closeout so both the system clock and computed analytics can
+regulate pacing. If the script cannot be executed, use the same state rules
+with a timestamp or clearly labeled user estimate, and mark analytics as
+unavailable rather than estimating them from chat turns.
+
+When `analytics.pacing.target_status` is `not_configured`, do not call the
+learner behind or ahead of schedule. When it is configured, explain a
+`behind_pace`, `above_plan`, `overlong_session`, or `overload_risk` alert using
+the recorded numbers and one bounded adjustment. `above_plan` alone is not a
+fatigue diagnosis; `overload_risk` requires the computed repeated-load or
+weak-evidence condition. The analyzer checks only when invoked; it does not
+send background notifications.
 
 Append a session record even when the learner performs poorly. Record planned
 time separately from actual time. Count active recall, practice, feedback, and
@@ -318,6 +338,12 @@ failures. Immediate correction is not a due spaced review. A review is due
 when the learner invokes the skill; the MVP does not send background
 notifications.
 
+Before adding new material, use the computed review and curve data when it is
+available. Prioritize overdue prerequisite reviews and delayed-decay alerts;
+use `fragile_progress` or `stalled_progress` to select a changed, delayed, or
+smaller evidence task. Do not treat `insufficient_data` as failure: name the
+missing evidence and collect it.
+
 For reports, separate:
 
 - investment: planned and actual minutes, frequency, and consistency;
@@ -326,10 +352,14 @@ For reports, separate:
   evidence;
 - learning regulation: meaningful progress, fragile progress, stalled work,
   delayed decay, recovery, and the adjustment taken;
+- computed analytics: data quality, planned versus actual minutes, pacing
+  status, frequency, review backlog, delayed pass rate, and dimension trends;
 - next action: one concrete task and its expected evidence.
 
 Use a daily summary after a lesson, a weekly review for trend and adjustment,
-and a periodic assessment for stage decisions. Read
+and a periodic assessment for stage decisions. Use the analyzer's `--as-of`
+date only when a reproducible report is needed; do not invent historical
+analytics for missing records. Read
 `references/assessment-rubrics.md` and
 `references/learning-regulation.md` before producing a progress claim or
 state-sensitive feedback.

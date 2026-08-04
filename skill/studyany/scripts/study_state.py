@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+from study_analytics import analyze as analyze_study
+
 
 class StateError(Exception):
     """An expected study-state error."""
@@ -249,12 +251,21 @@ def derived_open_loops(
 
 
 def time_summary(sessions: List[Dict[str, Any]], sessions_path: Path) -> Dict[str, Any]:
-    durations = [row.get("duration_min") for row in sessions if isinstance(row.get("duration_min"), (int, float))]
+    measured_sessions = [
+        row
+        for row in sessions
+        if row.get("status") in ("complete", "interrupted")
+    ]
+    durations = [
+        row.get("duration_min")
+        for row in measured_sessions
+        if isinstance(row.get("duration_min"), (int, float))
+        and not isinstance(row.get("duration_min"), bool)
+        and row.get("duration_min") >= 0
+    ]
     summary: Dict[str, Any] = {
-        "session_count": len(sessions),
-        "completed_or_interrupted_count": sum(
-            1 for row in sessions if row.get("status") in ("complete", "interrupted")
-        ),
+        "session_count": len(measured_sessions),
+        "completed_or_interrupted_count": len(measured_sessions),
         "total_minutes": round(sum(durations), 1) if durations else None,
         "source": "sessions.jsonl" if durations else "unknown",
     }
@@ -302,7 +313,8 @@ def build_state(study_root: Path) -> Dict[str, Any]:
     if not roadmap:
         warnings.append("roadmap.json is missing")
 
-    today = datetime.now().astimezone().date().isoformat()
+    analytics = analyze_study(study_root)
+    today = analytics.get("as_of") or datetime.now().astimezone().date().isoformat()
     latest_assessment = latest_row(assessments, ("created_at",))
     latest_review = latest_row(reviews, ("reviewed_at",))
     latest_decision = latest_row(decision_rows, ("created_at",))
@@ -389,6 +401,7 @@ def build_state(study_root: Path) -> Dict[str, Any]:
         "open_disputes": disputes,
         "active_session": active,
         "time": time_summary(sessions, sessions_path),
+        "analytics": analytics,
         "warnings": warnings,
         "sources": {
             "checkpoint": checkpoint is not None,
@@ -482,6 +495,24 @@ def print_human(state: Dict[str, Any]) -> None:
     print("Next review: %s" % (state.get("next_review") or "unknown"))
     time_data = state.get("time") or {}
     print("Study time: %s minutes (%s)" % (time_data.get("total_minutes") if time_data.get("total_minutes") is not None else "unknown", time_data.get("source", "unknown")))
+    analytics = state.get("analytics") or {}
+    quality = analytics.get("data_quality") or {}
+    print("Analytics: %s" % quality.get("status", "unknown"))
+    pacing = analytics.get("pacing") or {}
+    if pacing.get("target_status") == "not_configured":
+        print("Pacing target: not configured")
+    else:
+        print("Pacing: minutes=%s, sessions=%s, days=%s" % (
+            pacing.get("minute_status", "unknown"),
+            pacing.get("session_status", "unknown"),
+            pacing.get("day_status", "unknown"),
+        ))
+    reviews = analytics.get("reviews") or {}
+    print("Review backlog: %s due, %s overdue" % (reviews.get("due_count", 0), reviews.get("overdue_count", 0)))
+    for alert in (analytics.get("alerts") or [])[:3]:
+        print("Analytics alert: %s" % alert.get("code", "unknown"))
+    recommendation = analytics.get("recommendation") or {}
+    print("Analytics next action: %s" % recommendation.get("code", "none"))
     for warning in state.get("warnings") or []:
         print("Warning: %s" % warning)
 

@@ -119,6 +119,34 @@
       "prompt": "I am a Chinese-speaking learner studying Python. Create a small starter file for today's exercise. Use Chinese for comments, docstrings, instructions, sample messages, and the file handoff, while keeping Python keywords, standard API names, commands, and required identifiers exact. Record the artifact language.",
       "expected_output": "The skill resolves the learner language from the current context or profile, creates or edits the visible artifact with learner-readable content in Chinese, preserves executable technical tokens, uses Chinese in the handoff, and records content_language as zh-CN.",
       "files": []
+    },
+    {
+      "id": 18,
+      "name": "computed-pacing-alerts",
+      "prompt": "My profile has a target of 180 minutes and four sessions per week. The fixed weekly report shows 70 minutes in two sessions, each planned for 45 minutes, by Saturday. Compute whether I am behind, over plan, or at overload risk from the saved records. Do not infer my mood.",
+      "expected_output": "The skill reads deterministic analytics, identifies the two overlong sessions and the weekly above-plan or overload signal with the observed numbers, distinguishes pacing from psychology, and recommends a bounded break or next check.",
+      "files": []
+    },
+    {
+      "id": 19,
+      "name": "missing-target-not-understudy",
+      "prompt": "My profile says I have 240 minutes available per week, but I never chose a weekly study target. I studied for 30 minutes. Tell me whether I studied too little.",
+      "expected_output": "The skill says the target is not configured, does not call the learner behind based only on capacity, reports the measured 30 minutes, and offers target setup as an optional next step.",
+      "files": []
+    },
+    {
+      "id": 20,
+      "name": "learning-curve-data-quality",
+      "prompt": "I answered several similar questions correctly today and want to declare mastery. The analytics has immediate evidence but no delayed or changed-context evidence. Continue the lesson.",
+      "expected_output": "The skill labels the progress as fragile or insufficient for retention, explains the evidence limitation, adds an independent or changed task, and preserves a spaced review instead of treating speed as durable mastery.",
+      "files": []
+    },
+    {
+      "id": 21,
+      "name": "delayed-decay-and-review-priority",
+      "prompt": "A concept passed after a short delay but failed at its later spaced review, and another review is overdue. Use the analytics to decide the next learning action.",
+      "expected_output": "The skill preserves both events, identifies delayed decay, prioritizes a varied retrieval repair for the overdue concept, shortens the next interval, and does not erase the earlier pass.",
+      "files": []
     }
   ]
 }

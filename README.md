@@ -18,6 +18,11 @@ from ordinary tone or a single answer. Feedback events are stored separately
 from learning evidence so a new chat can resume the latest adjustment without
 treating it as a permanent learner label.
 
+The bundled analytics engine calculates local weekly time, frequency, pacing,
+review backlog, delayed retention, and separate evidence trends. It distinguishes
+an unconfigured target from a measured shortfall, and reports an informational
+above-plan signal separately from repeated-load overload risk.
+
 ## Global Install
 
 Install the published package from npm:
@@ -145,6 +150,36 @@ python .claude/skills/studyany/scripts/study_state.py --study-root .study rebuil
 
 The rebuild reports missing historical session logs as unknown. It never
 estimates past minutes from conversation length.
+
+## Computed Learning Analytics
+
+Configure a commitment only when you want adherence alerts. Capacity is not a
+commitment:
+
+```json
+{
+  "available_minutes_per_week": 240,
+  "target_minutes_per_week": 180,
+  "target_sessions_per_week": 4,
+  "target_study_days": ["Mon", "Tue", "Thu", "Sat"],
+  "preferred_session_minutes": 45,
+  "maximum_session_minutes": 75
+}
+```
+
+The state command includes the derived projection:
+
+```text
+python .claude/skills/studyany/scripts/study_analytics.py --study-root .study --json
+python .claude/skills/studyany/scripts/study_state.py --study-root .study status --json
+```
+
+The projection reports `overlong_session`, `behind_pace`, `above_plan`,
+`frequency_gap`, `review_backlog`, `delayed_decay`, `fragile_progress`,
+`stalled_progress`, and `overload_risk` when observable thresholds are met.
+Missing targets and sparse evidence are reported as `not_configured` or
+`insufficient_data`, never as failure. Checks happen when the skill is invoked;
+StudyAny does not run a background notifier.
 
 ## Challenge Handling
 

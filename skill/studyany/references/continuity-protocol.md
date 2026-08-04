@@ -58,6 +58,11 @@ For every non-setup learning interaction:
    Time: <measured total or unknown, with the reason>
    ```
 
+   When `study_state.py status --json` is available, add one compact analytics
+   line containing data quality, configured pace status, review backlog, the
+   most relevant evidence trend, and the highest-priority alert. Do not turn
+   `not_configured` or `insufficient_data` into a negative learner judgment.
+
 6. If a checkpoint, goal, and roadmap already exist, do not ask the learner to
    repeat setup or restart the diagnostic. Ask the saved open-loop question or
    assign the saved next action. Ask for clarification only when records
@@ -98,7 +103,9 @@ Before ending a learning interaction:
    current stage, unresolved loops, next action, next review, and any missing
    data warning. Keep the checkpoint small enough to read at the next start.
 5. Regenerate `dashboard.md` from the records or update its derived summary.
-   Do not rewrite or delete historical JSONL events.
+   Use the current `analytics` projection when available so time, pacing,
+   review, and evidence sections agree. Do not rewrite or delete historical
+   JSONL events.
 6. End with one concrete next action. A lesson is not persisted merely because
    the assistant displayed a summary in chat.
 

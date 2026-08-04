@@ -94,7 +94,7 @@ every turn.
 
 | Trigger | Observable threshold | First response | Do not do |
 | --- | --- | --- | --- |
-| `overlong_session` | The clock exceeds planned time by about 15 minutes, or a default 45-60 minute block has had no break | pause, close with partial evidence, or take a short break before one final retrieval | frame fatigue as laziness or force more content |
+| `overlong_session` | The measured elapsed time is at least 15 minutes above the session baseline; a configured maximum may also be exceeded | pause, close with partial evidence, or take a short break before one final retrieval | frame fatigue as laziness or force more content |
 | `fragile_fast_progress` | Several immediate correct answers but no independent changed example or delayed evidence | keep the celebration modest, add one unfamiliar task, and preserve the next spaced review | reward speed as mastery or skip the review ladder |
 | `stalled_progress` | The same consequential error recurs, hints do not reduce, or two sessions produce no new evidence | classify the bottleneck, shrink the task, repair one prerequisite, or switch to a worked/completion step | give a longer lecture, lower the learner's ability, or reset the whole course |
 | `plan_drift` | Current work no longer produces the saved objective or repeatedly bypasses a high-priority open loop | name the mismatch, park the useful tangent, and ask whether to return or explicitly change the goal | silently replace the roadmap |
@@ -109,6 +109,37 @@ judgment.
 When a shell is available, query the open clock session before starting another
 major work block and before closeout. If no clock is available, use only a
 clearly labeled learner estimate; never infer elapsed time from message count.
+
+## 3A. Deterministic analytics and pacing alerts
+
+When a shell is available, `study_state.py status --json` includes a derived
+`analytics` projection from `study_analytics.py`. Read its data quality before
+using any alert. The projection is calculated from timestamps and saved
+evidence; it does not infer a learner state from prose.
+
+- `target_status: not_configured` means the system cannot judge weekly
+  adherence. `available_minutes_per_week` is capacity, not a target.
+- `behind_pace` is emitted only after enough of the week has elapsed (normally
+  day three) and actual minutes, sessions, or target study days are materially
+  below the configured pace. Recommend one small evidence-bearing session.
+- `above_plan` means measured time is materially above the configured pace. It
+  is an informational load signal, not proof of harm or a command to stop.
+- `overlong_session` means one measured session exceeded its baseline by at
+  least 15 minutes. `overload_risk` requires repeated overlong sessions or an
+  above-plan signal combined with fragile, stalled, or delayed-decay evidence.
+- `review_backlog` and `delayed_decay` take priority over new material when
+  they affect a prerequisite. Same-session corrections never count as delayed
+  retention success.
+- `fragile_progress` means immediate or similar-task performance lacks delayed
+  or changed-context evidence. `stalled_progress` means comparable evidence is
+  not improving after repeated observations. Use the smallest next check.
+- `insufficient_data` means collect the missing observation; it is not a zero
+  score. Do not create a negative feedback event solely because data is absent.
+
+These checks run when the skill is invoked and at explicitly requested clock
+checks. There is no background daemon or push notification. Translate the
+stable alert code into the learner's current language and explain the observed
+numbers, one adjustment, and the next check.
 
 ## 4. Feedback protocol
 

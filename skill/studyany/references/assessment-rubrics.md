@@ -114,6 +114,13 @@ Include:
 Avoid declaring a positive learning curve when only time or confidence
 increased. Say when evidence is sparse or incomparable.
 
+When the deterministic analytics projection is available, include its data
+quality, dimension labels, sample counts, and deltas in the report. Treat
+`building`, `consolidating`, `fragile`, `stalled`, and `recovering` as
+temporary evidence patterns. A configured time target may explain workload,
+but it cannot raise an evidence dimension without an assessment, delayed
+review, independent task, or transfer result.
+
 ### Stage report
 
 State the goal, current stage, evidence for each gate, unresolved risks, and
