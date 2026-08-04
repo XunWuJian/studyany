@@ -15,6 +15,11 @@ do not replace unknown data with a guessed value.
   "available_minutes_per_week": 240,
   "preferred_session_minutes": 45,
   "minimum_session_minutes": 10,
+  "feedback_preferences": {
+    "tone": "warm_direct",
+    "celebrate_milestones": true,
+    "playful_style": "off"
+  },
   "created_at": "2026-08-03T19:00:00+08:00",
   "updated_at": "2026-08-03T19:00:00+08:00"
 }
@@ -83,6 +88,7 @@ It is not a replacement for append-only evidence logs.
   "last_assessment_id": "assessment-2026-08-03-001",
   "last_review_id": "review-2026-08-03-001",
   "last_decision_id": "decision-2026-08-03-001",
+  "last_coaching_event_id": "feedback-2026-08-03-001",
   "plan": {
     "version": "roadmap-v1",
     "status": "active|disputed|deferred",
@@ -100,6 +106,7 @@ It is not a replacement for append-only evidence logs.
     }
   ],
   "last_evidence": "Completed a changed-example task with a light cue",
+  "last_feedback": "Keep the delayed review; application evidence is improving",
   "open_loops": [
     {
       "loop_id": "review-concept-01-unaided",
@@ -146,6 +153,7 @@ in `assessments.jsonl` and `reviews.jsonl`.
   "retrieval": 1,
   "application": 1,
   "transfer": 0,
+  "retention_stage": "new|repair|1d|3d|7d|14d|30d|maintenance",
   "last_reviewed": "2026-08-03",
   "next_review": "2026-08-04",
   "review_streak": 0,
@@ -238,6 +246,8 @@ position; it is not a claim that the route is universally optimal.
   "practice_score": 0.8,
   "confidence_before": 0.6,
   "confidence_after": 0.75,
+  "coaching_event_ids": ["feedback-2026-08-03-001"],
+  "feedback_summary": "Independent changed-example evidence; delayed retention still pending",
   "summary": "Completed a changed-example task with a light cue",
   "energy": null,
   "distraction": null,
@@ -268,6 +278,9 @@ retried after the event was appended, do not append a duplicate.
   "scheduled_for": "2026-08-03",
   "reviewed_at": "2026-08-03T19:15:00+08:00",
   "result": "fail|hinted|pass|transfer_pass",
+  "delay_type": "same_session|next_day|spaced|maintenance",
+  "interval_stage": "repair|1d|3d|7d|14d|30d|60d",
+  "same_session": false,
   "confidence_before": 0.7,
   "evidence_ref": "assessment-2026-08-03-001",
   "next_review": "2026-08-04",
@@ -300,9 +313,43 @@ retried after the event was appended, do not append a duplicate.
 }
 ```
 
+## coaching_events.jsonl
+
+This append-only log stores meaningful feedback and pacing decisions. It is
+not a transcript and must not contain inferred diagnoses or stable labels about
+the learner. Do not create an event for every answer; create one when a
+milestone, trigger, review adjustment, recovery choice, or plan-alignment
+correction changes the next action.
+
+```json
+{
+  "event_id": "feedback-2026-08-03-001",
+  "session_id": "session-2026-08-03-001",
+  "subject": "example subject",
+  "created_at": "2026-08-03T19:45:00+08:00",
+  "kind": "milestone|regulation|review_adjustment|recovery|plan_alignment",
+  "trigger": "milestone_evidence|overlong_session|fragile_fast_progress|stalled_progress|plan_drift|explicit_strain|confidence_mismatch|delayed_decay",
+  "observations": [
+    "Solved a changed example without a cue",
+    "Delayed retention has not yet been tested"
+  ],
+  "learning_interpretation": "Application evidence improved; retention remains open",
+  "action": "Keep the next spaced review and add one transfer check",
+  "tone": "warm_direct|calm|celebratory|firm",
+  "learner_choice": null,
+  "evidence_refs": ["assessment-2026-08-03-001"],
+  "next_check": "Unaided retrieval on the next available day"
+}
+```
+
+`observations` must be evidence that could be checked. `learning_interpretation`
+is a provisional learning-design interpretation, not a psychological
+diagnosis. The checkpoint may point to the latest event for continuity, but a
+new session must recheck the current condition before applying its action.
+
 ## dashboard.md
 
 This file is derived from the logs. Include the generation date, subject
 filters, time totals, evidence trends, due reviews, recurring errors, current
-stage, artifact status, and next actions. Never use it to overwrite raw events
-without an explicit reconciliation step.
+stage, artifact status, feedback or regulation trends, and next actions. Never
+use it to overwrite raw events without an explicit reconciliation step.

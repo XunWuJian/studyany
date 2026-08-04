@@ -3,7 +3,9 @@
 This reference defines the general protocol behind every subject. Use it to
 turn a vague learning request into a sequence of observable actions and
 evidence. The protocol is adaptive: keep the loop stable while changing the
-content, examples, difficulty, and evidence type for the domain.
+content, examples, difficulty, and evidence type for the domain. For pacing,
+long-term retention, and supportive correction, also read
+`references/learning-regulation.md`.
 
 ## 1. Define the target
 
@@ -77,15 +79,21 @@ roadmap.
 Use this default allocation as a starting point, not a rigid law:
 
 ```text
-10-20%: retrieval of prior material
+15-25%: retrieval of due or recently learned material
 15-25%: new explanation and worked example
-40-60%: guided and independent practice
+35-55%: guided and independent practice
 10-20%: feedback, correction, and exit check
 ```
 
 Short sessions can omit explanation when review evidence is strong. Long
 sessions should include a break and a second retrieval attempt rather than
-one uninterrupted explanation.
+one uninterrupted explanation. A same-session correction check is useful, but
+it is not a substitute for delayed retrieval. Do not use extra same-session
+repetitions to claim durable retention.
+
+Before changing pace or tone, run the trigger gate in
+`references/learning-regulation.md`. If no observable trigger is present, do
+not infer a psychological state and continue the normal lesson loop.
 
 ### Objective format
 
@@ -174,6 +182,11 @@ Possible exit evidence:
 If the learner cannot finish, record partial evidence and the smallest next
 step. Do not mark the objective complete merely because the lesson was read.
 
+Give one evidence-based progress, lag, or next-evidence statement before
+closing. Then schedule the next *spaced* review. The same-session exit check
+can confirm correction, but it cannot replace a retrieval attempt after a
+meaningful interval.
+
 ## 6. Adaptation rules
 
 Use evidence to adjust the next action:
@@ -190,6 +203,12 @@ Use evidence to adjust the next action:
 - repeated forgetting after intervals: shorten the interval and vary retrieval
   cues.
 
+When the learner is working for a long block, making rapid gains without
+delayed evidence, repeating an error, explicitly reporting strain, or drifting
+from the target, apply the smallest response in
+`references/learning-regulation.md`. Do not infer a state when none of these
+signals is observable.
+
 ## 7. Weekly adjustment
 
 Once per week, compare planned work with evidence:
@@ -199,5 +218,8 @@ Once per week, compare planned work with evidence:
 - Is the schedule realistic?
 - Is the learner practicing the target performance or only adjacent content?
 - Which stage should be continued, revisited, or removed?
+- Which learning-regulation signals occurred, and did the adjustment help?
 
-Change one or two variables at a time so the learner can tell what helped.
+Compare retrieval, application, transfer, and retention separately. Increased
+minutes or confidence alone is not a positive learning curve. Change one or
+two variables at a time so the learner can tell what helped.

@@ -1,7 +1,9 @@
 # Assessment And Reporting Rubrics
 
 Use these rubrics to make progress claims proportional to evidence. Scores are
-descriptors, not a judgment of the learner.
+descriptors, not a judgment of the learner. Use the separate learning
+regulation reference when time, pace, drift, or explicit strain requires a
+coaching adjustment.
 
 ## Evidence dimensions
 
@@ -59,6 +61,29 @@ When confidence was recorded before an answer, compare it with the result:
   prerequisite.
 
 Do not use confidence as a score of ability.
+
+## Learning curve and feedback
+
+Describe a learning curve as a set of evidence trends, not one global feeling
+or one total score. Compare at least two reasonably similar observations when
+possible:
+
+- retrieval across a delay;
+- application on a similar task;
+- transfer to a changed context;
+- retention after an interval;
+- time and workload needed for comparable performance.
+
+Useful temporary trajectory labels are `building`, `consolidating`,
+`fragile`, `stalled`, `recovering`, and `insufficient_data`. They describe the
+current evidence pattern, not a learner identity. Do not call a curve positive
+merely because minutes, confidence, or immediate correctness increased. Do not
+call it negative merely because one difficult review failed.
+
+When giving feedback, state the observed evidence, the learning meaning, the
+one adjustment, and the next check. Credit a strategy, attempt, correction, or
+repeated practice. Avoid generic praise, ability labels, and psychological
+diagnoses.
 
 ## Report format
 

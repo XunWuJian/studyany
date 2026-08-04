@@ -14,6 +14,7 @@ current pointer, durable history, and a readable summary:
 ├── goals.json            # goal contract
 ├── artifacts.jsonl       # artifact lifecycle and evidence links
 ├── decisions.jsonl       # challenge adjudications and route decisions
+├── coaching_events.jsonl  # meaningful feedback and pacing adjustments
 └── dashboard.md          # derived human-readable report
 ```
 
@@ -41,9 +42,9 @@ For every non-setup learning interaction:
    goal. A rebuilt checkpoint is `partial` when source evidence or time is
    missing.
 4. Read `checkpoint.json`, the current roadmap stage, the latest relevant
-   concept records, the latest assessment/review events, and the latest
-   decision for each challenged claim. Do not scan every historical line unless
-   a report or audit requires it.
+   concept records, the latest assessment/review events, the latest decision
+   for each challenged claim, and the latest coaching event. Do not scan every
+   historical line unless a report or audit requires it.
 5. Surface a compact resume block before teaching:
 
    ```text
@@ -51,6 +52,7 @@ For every non-setup learning interaction:
    Last evidence: <latest observed evidence or unknown>
    Open loops: <highest-priority unresolved evidence>
    Open disputes: <pending or deferred challenge decisions, or none>
+   Last feedback: <latest evidence-based adjustment or milestone, or none>
    Due reviews: <items and dates>
    Next action: <the saved action>
    Time: <measured total or unknown, with the reason>
@@ -61,7 +63,8 @@ For every non-setup learning interaction:
    assign the saved next action. Ask for clarification only when records
    conflict or the learner explicitly changes the goal. Do not reopen a
    locked challenge decision unless new evidence, a new version, or a changed
-   constraint is present.
+   constraint is present. Treat a previous coaching signal as a prompt to
+   recheck current evidence, not as a current mood or ability label.
 
 ## Keep Open Loops Small
 
@@ -85,15 +88,18 @@ Before ending a learning interaction:
 
 1. Preserve the learner's result, including failure or partial evidence, in
    the appropriate append-only assessment/review/artifact record.
-2. Close the clock session when one was started. Use `interrupted` when the
+2. If a meaningful milestone, trigger, recovery choice, review adjustment, or
+   plan-alignment correction occurred, append one evidence-based event to
+   `coaching_events.jsonl`. Do not log every tone impression.
+3. Close the clock session when one was started. Use `interrupted` when the
    session stopped without a valid exit check. Never derive minutes from the
    number of messages.
-3. Update `checkpoint.json` atomically with the latest evidence references,
+4. Update `checkpoint.json` atomically with the latest evidence references,
    current stage, unresolved loops, next action, next review, and any missing
    data warning. Keep the checkpoint small enough to read at the next start.
-4. Regenerate `dashboard.md` from the records or update its derived summary.
+5. Regenerate `dashboard.md` from the records or update its derived summary.
    Do not rewrite or delete historical JSONL events.
-5. End with one concrete next action. A lesson is not persisted merely because
+6. End with one concrete next action. A lesson is not persisted merely because
    the assistant displayed a summary in chat.
 
 If the learner changes the goal, preserve the old history, update `goals.json`
@@ -110,8 +116,11 @@ next turn.
 - Latest observed assessment/review evidence outranks a prose dashboard line.
 - A checkpoint points to evidence; it does not replace that evidence.
 - A settled challenge decision is part of the resume boundary. Reopen it only
-  through `references/challenge-protocol.md` and record the new evidence and
-  revision; do not let the latest conversational assertion override it.
+   through `references/challenge-protocol.md` and record the new evidence and
+   revision; do not let the latest conversational assertion override it.
+- A coaching event describes a past observation and adjustment. Recheck the
+  current session before applying it; never carry an inferred psychological
+  state across conversations.
 - Missing `sessions.jsonl` means historical time is unknown, not zero.
 - Missing assessment dimensions remain `null`, not a failed score.
 - If a record is malformed, preserve it, report the warning, and continue with

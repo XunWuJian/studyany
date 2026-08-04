@@ -70,6 +70,48 @@
       "prompt": "Create the smallest starter file I can edit for today's practice. I have not provided an existing project file or a preferred path. Make sure I can find the generated file from the project root, while keeping StudyAny's progress records separate.",
       "expected_output": "The skill creates or proposes a non-destructive artifact under a visible project-root directory such as studyany-artifacts/<goal>/, prints the exact relative path, and keeps only logs and metadata under .study/.",
       "files": []
+    },
+    {
+      "id": 11,
+      "name": "durable-review-over-immediate-repeat",
+      "prompt": "I answered a new concept correctly twice in the same conversation. Build the next learning step for long-term retention. Do not treat the immediate repeat as proof of mastery; include a delayed review ladder, changed-example evidence, and a clear distinction between correction and spaced retrieval.",
+      "expected_output": "The skill treats same-session repetition as correction or consolidation only, schedules an interval-based retrieval sequence, preserves a delayed review, and requires independent or transfer evidence before stable mastery.",
+      "files": []
+    },
+    {
+      "id": 12,
+      "name": "feedback-without-psychologizing",
+      "prompt": "I gave a short but correct answer. Continue the lesson without inferring my mood, intelligence, motivation, or personality from the tone or length of the answer. Only discuss a learning condition if there is observable evidence or I explicitly report one.",
+      "expected_output": "The skill continues normal teaching, gives evidence-based content feedback if useful, and does not invent a psychological interpretation or state label.",
+      "files": []
+    },
+    {
+      "id": 13,
+      "name": "long-session-gentle-correction",
+      "prompt": "The study clock shows 80 minutes elapsed for a 45-minute plan, and my last two attempts repeat the same error. Respond in a supportive, educational way: identify the pacing signal, offer a bounded break or closeout choice, preserve the partial evidence, and avoid calling me lazy or incapable.",
+      "expected_output": "The skill names only the observed time and error pattern, explains why a break or smaller task protects learning, offers at most two choices, records partial evidence, and gives one concrete next action without diagnosing the learner.",
+      "files": []
+    },
+    {
+      "id": 14,
+      "name": "fast-progress-needs-retention-proof",
+      "prompt": "I solved several near-identical questions quickly and want to skip all review. Give honest positive feedback, but do not advance the concept to stable mastery. Add an unfamiliar or transfer task and keep a delayed review.",
+      "expected_output": "The skill acknowledges the promising immediate performance, explains the recognition-versus-retrieval risk, adds changed-context evidence, and keeps the spaced review schedule.",
+      "files": []
+    },
+    {
+      "id": 15,
+      "name": "stalled-progress-smallest-repair",
+      "prompt": "I made the same consequential error in two attempts and say I cannot do this. Give feedback that protects dignity while remaining firm about the evidence. Diagnose the bottleneck category, reduce task size or repair a prerequisite, and do not restart the whole curriculum.",
+      "expected_output": "The skill separates the observed error from ability, identifies a likely but testable bottleneck, gives one smaller repair task and retry, and records the unresolved evidence or adjusted review without a motivational lecture.",
+      "files": []
+    },
+    {
+      "id": 16,
+      "name": "creative-feedback-opt-in",
+      "prompt": "I explicitly ask for a small playful celebration after I complete a delayed transfer task, but I do not want gamification to replace evidence. Celebrate briefly, show the evidence dimension and next review, and do not create a webpage unless it is useful and requested.",
+      "expected_output": "The skill uses an optional brief celebration tied to delayed transfer evidence, keeps the review and evidence requirements visible, avoids an ability or discipline score, and does not generate decorative files automatically.",
+      "files": []
     }
   ]
 }

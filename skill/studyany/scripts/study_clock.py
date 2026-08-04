@@ -121,6 +121,7 @@ def command_start(args: argparse.Namespace) -> None:
         "confidence_after": None,
         "evidence_refs": [],
         "artifact_ids": args.artifact_id or [],
+        "coaching_event_ids": args.coaching_event_id or [],
         "summary": None,
         "mistakes": [],
         "next_action": None,
@@ -170,6 +171,9 @@ def command_stop(args: argparse.Namespace) -> None:
         session["evidence_mode"] = args.evidence_mode
     if args.artifact_id:
         session["artifact_ids"] = args.artifact_id
+    if args.coaching_event_id:
+        existing_ids = session.get("coaching_event_ids") or []
+        session["coaching_event_ids"] = list(dict.fromkeys(existing_ids + args.coaching_event_id))
     if args.next_action is not None:
         session["next_action"] = args.next_action
     if args.next_review is not None:
@@ -216,6 +220,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="conversation",
     )
     start.add_argument("--artifact-id", action="append")
+    start.add_argument("--coaching-event-id", action="append")
 
     commands.add_parser("status", help="show the open session and elapsed time")
 
@@ -234,6 +239,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("conversation", "artifact", "mixed"),
     )
     stop.add_argument("--artifact-id", action="append")
+    stop.add_argument("--coaching-event-id", action="append")
     return parser
 
 

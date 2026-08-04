@@ -278,6 +278,7 @@ def build_state(study_root: Path) -> Dict[str, Any]:
     decisions_path = study_root / "decisions.jsonl"
     decision_rows = read_jsonl(decisions_path, warnings)
     decision_map = latest_decisions(decision_rows)
+    coaching_rows = read_jsonl(study_root / "coaching_events.jsonl", warnings)
     sessions_path = study_root / "sessions.jsonl"
     sessions = read_jsonl(sessions_path, warnings)
     active = read_json(study_root / "active-session.json", warnings)
@@ -305,6 +306,7 @@ def build_state(study_root: Path) -> Dict[str, Any]:
     latest_assessment = latest_row(assessments, ("created_at",))
     latest_review = latest_row(reviews, ("reviewed_at",))
     latest_decision = latest_row(decision_rows, ("created_at",))
+    latest_coaching = latest_row(coaching_rows, ("created_at",))
     latest_session = latest_row(sessions, ("ended_at", "started_at"))
     stage = stage_state(roadmap)
     checkpoint_loops = checkpoint.get("open_loops") if checkpoint else None
@@ -344,7 +346,7 @@ def build_state(study_root: Path) -> Dict[str, Any]:
         plan["decision_refs"] = []
 
     activity_times = []
-    for row in (latest_assessment, latest_review, latest_decision, latest_session):
+    for row in (latest_assessment, latest_review, latest_decision, latest_coaching, latest_session):
         if isinstance(row, dict):
             for field in ("created_at", "reviewed_at", "ended_at", "started_at", "updated_at"):
                 parsed = parse_time(row.get(field))
@@ -352,6 +354,17 @@ def build_state(study_root: Path) -> Dict[str, Any]:
                     activity_times.append(parsed)
     last_activity_at = max(activity_times).isoformat(timespec="seconds") if activity_times else None
     latest_evidence = latest_assessment.get("summary") if latest_assessment else None
+    latest_feedback = None
+    if latest_coaching:
+        latest_feedback = (
+            latest_coaching.get("action")
+            or latest_coaching.get("learning_interpretation")
+            or latest_coaching.get("next_check")
+        )
+    if not latest_feedback and checkpoint:
+        checkpoint_feedback = checkpoint.get("last_feedback")
+        if isinstance(checkpoint_feedback, str) and checkpoint_feedback:
+            latest_feedback = checkpoint_feedback
 
     return {
         "status": "partial" if warnings else "ready",
@@ -364,6 +377,9 @@ def build_state(study_root: Path) -> Dict[str, Any]:
         "latest_assessment_id": latest_assessment.get("assessment_id") if latest_assessment else None,
         "latest_review_id": latest_review.get("review_id") if latest_review else None,
         "latest_decision_id": latest_decision.get("decision_id") if latest_decision else None,
+        "latest_coaching_event_id": latest_coaching.get("event_id") if latest_coaching else None,
+        "latest_feedback": latest_feedback,
+        "latest_coaching_event": latest_coaching,
         "latest_session_id": latest_session.get("session_id") if latest_session else None,
         "open_loops": loops,
         "due_reviews": due,
@@ -382,6 +398,7 @@ def build_state(study_root: Path) -> Dict[str, Any]:
             "assessments": len(assessments),
             "reviews": len(reviews),
             "decisions": len(decision_rows),
+            "coaching_events": len(coaching_rows),
             "sessions": len(sessions),
         },
     }
@@ -407,6 +424,7 @@ def checkpoint_from_state(state: Dict[str, Any]) -> Dict[str, Any]:
         "last_assessment_id": state.get("latest_assessment_id"),
         "last_review_id": state.get("latest_review_id"),
         "last_decision_id": state.get("latest_decision_id"),
+        "last_coaching_event_id": state.get("latest_coaching_event_id"),
         "plan": state.get(
             "plan",
             {
@@ -417,6 +435,7 @@ def checkpoint_from_state(state: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "open_disputes": state.get("open_disputes", []),
         "last_evidence": state.get("last_evidence"),
+        "last_feedback": state.get("latest_feedback"),
         "open_loops": state.get("open_loops", []),
         "next_action": state.get("next_action"),
         "next_review": state.get("next_review"),
@@ -447,6 +466,8 @@ def print_human(state: Dict[str, Any]) -> None:
         print("Last activity: %s" % state["last_activity_at"])
     if state.get("last_evidence"):
         print("Last evidence: %s" % state["last_evidence"])
+    if state.get("latest_feedback"):
+        print("Last feedback: %s" % state["latest_feedback"])
     loops = state.get("open_loops") or []
     print("Open loops: %d" % len(loops))
     for loop in loops[:5]:

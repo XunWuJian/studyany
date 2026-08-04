@@ -7,7 +7,16 @@ assessment, spaced review, and persistent local study records.
 The workflow chooses the medium that best demonstrates the current objective:
 conversation for explanation and recall, a learner workspace artifact for
 external work, or a mixture of both. It does not treat reading a lesson as
-proof of mastery.
+proof of mastery. Immediate correction is kept separate from long-term
+retention: the skill schedules delayed retrieval, expanding intervals, and
+changed-context checks before stable mastery.
+
+StudyAny also gives evidence-based coaching feedback when a session is too
+long, progress is fragile or stalled, the work drifts from its goal, or the
+learner explicitly reports strain. It does not infer a psychological diagnosis
+from ordinary tone or a single answer. Feedback events are stored separately
+from learning evidence so a new chat can resume the latest adjustment without
+treating it as a permanent learner label.
 
 ## Global Install
 
@@ -112,6 +121,7 @@ StudyAny keeps current continuity separate from historical evidence:
 .study/assessments.jsonl learning evidence
 .study/reviews.jsonl     retrieval history and due dates
 .study/decisions.jsonl   challenge decisions and route changes
+.study/coaching_events.jsonl meaningful feedback and pacing adjustments
 .study/dashboard.md      derived human-readable summary
 ```
 

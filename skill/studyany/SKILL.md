@@ -1,6 +1,6 @@
 ---
 name: studyany
-description: "Use this skill when a learner wants structured teaching, practice, review, progress tracking, or help reaching a concrete learning goal. It turns the goal into observable evidence, adapts instruction and difficulty from learner performance, records study sessions, and schedules retrieval-based review. Trigger even when the learner does not name a skill or ask for a formal plan."
+description: "Use this skill when a learner wants structured teaching, practice, review, progress tracking, supportive feedback, or help reaching a concrete learning goal. It turns the goal into observable evidence, adapts instruction and difficulty from learner performance, records study sessions, separates immediate correction from spaced retention, and schedules retrieval-based review. Trigger even when the learner does not name a skill or ask for a formal plan."
 ---
 
 # StudyAny
@@ -16,6 +16,9 @@ another language.
   syllabus.
 - Prefer active recall, guided practice, independent practice, feedback, and
   transfer tasks over long passive explanations.
+- Separate the session clock from the memory clock: immediate correctness and
+  time spent are not evidence of durable retention. Use spaced retrieval,
+  changed examples, and maintenance reviews.
 - Teach one or two measurable objectives at a time.
 - Ask the learner to attempt an answer before revealing a full solution when
   the task is safe and reasonably solvable.
@@ -23,6 +26,14 @@ another language.
   not proof of mastery.
 - Keep the learner moving after mistakes. Diagnose the error, provide the
   smallest useful hint, and retry.
+- Give specific feedback whenever evidence improves, stalls, or remains
+  missing. Credit the learner's strategy and work, not an unverified trait.
+- Notice temporary learning conditions only from observable behavior, measured
+  time, or explicit self-report. Do not diagnose or infer a stable ability,
+  mood, or personality from tone, punctuation, answer length, or one mistake.
+- Intervene only when a trigger warrants it; otherwise do not comment on a
+  presumed psychological state. When a trigger exists, use one calm adjustment
+  and recheck it before adding another.
 - Be firm about evidence and transparent about uncertainty. A learner's
   disagreement triggers an investigation, not automatic agreement; a valid
   correction changes the plan, while unsupported rejection does not create a
@@ -52,6 +63,9 @@ Read only the reference needed for the current operation:
   `references/domain-modes.md`.
 - Every non-setup learning interaction: read `references/continuity-protocol.md`
   before selecting a lesson, review, or practice task.
+- Every non-setup learning interaction: read `references/learning-regulation.md`
+  alongside continuity. Use its trigger gate before changing the learner's
+  pace or tone, and do not add state commentary when no trigger is present.
 
 ## Start by loading state
 
@@ -69,6 +83,7 @@ Look for `.study/` in the current workspace. The expected files are:
 ├── assessments.jsonl
 ├── artifacts.jsonl
 ├── decisions.jsonl
+├── coaching_events.jsonl
 └── dashboard.md
 ```
 
@@ -89,9 +104,11 @@ human-readable view.
 At the start of every non-setup interaction, follow
 `references/continuity-protocol.md`. When a shell is available, run
 `scripts/study_state.py status --json` and use its output to restore the
-current stage, last evidence, due reviews, open loops, next action, and time
-tracking status. Present a short `Resume` block before teaching. Do not ask the
-learner to repeat a goal or diagnostic that is already persisted.
+current stage, last evidence, latest feedback, due reviews, open loops, next
+action, and time tracking status. Present a short `Resume` block before
+teaching. Do not ask the learner to repeat a goal or diagnostic that is already
+persisted. A previous coaching event is a historical adjustment, not a current
+mood or ability label; recheck the current evidence before applying it.
 
 At closeout, persist the observed result and update `checkpoint.json` with the
 next action and unresolved evidence. A message that only describes what should
@@ -155,21 +172,27 @@ disagreement.
 Use this sequence unless the domain requires a documented variation:
 
 1. Restore the checkpoint, due reviews, last unresolved loop, latest relevant
-   evidence, and latest challenge decisions before planning the interaction.
-2. State one or two objectives and the evidence that will demonstrate them.
-3. Ask the saved retrieval or open-loop question before introducing new
+   evidence, latest coaching event, and latest challenge decisions before
+   planning the interaction.
+2. Run the trigger gate: use measured time, repeated task evidence, explicit
+   self-report, or plan mismatch. If no trigger is present, do not infer a
+   psychological state or add state commentary.
+3. State one or two objectives and the evidence that will demonstrate them.
+4. Ask the saved retrieval or open-loop question before introducing new
    material when one exists.
-4. Explain only the missing idea, with a concrete example.
-5. Select conversation, artifact, or mixed practice according to the
+5. Explain only the missing idea, with a concrete example.
+6. Select conversation, artifact, or mixed practice according to the
    evidence required. Read `references/artifact-workflow.md` for the artifact
    path when the task requires work outside the conversation.
-6. Give a guided task with hints available in levels.
-7. Give an independent task that differs from the example.
-8. Give feedback tied to the rubric or expected result.
-9. Ask the learner to retry or explain the correction.
-10. Run an exit check and record uncertainty.
-11. Schedule the next review, close the session record, and update the
-    checkpoint before stating the next action.
+7. Give a guided task with hints available in levels.
+8. Give an independent task that differs from the example.
+9. Give feedback tied to the rubric or expected result.
+10. Ask the learner to retry or explain the correction.
+11. Run an exit check and record uncertainty.
+12. Give one specific progress, lag, or next-evidence feedback statement. When
+   a trigger changed the plan, explain the adjustment in a warm, direct tone.
+13. Schedule the next *spaced* review, close the session record, and update the
+   checkpoint before stating the next action.
 
 For executable, manipulative, or externally observed work, encourage the
 learner to perform the task and report or return the result. Do not pretend to
@@ -227,12 +250,17 @@ python <skill-dir>/scripts/study_clock.py stop --status complete --next-action "
 Use `py -3` on Windows when `python` is unavailable. The script stores an open
 session in `.study/active-session.json` and appends the completed event to
 `.study/sessions.jsonl`. On a later turn, check `status` before starting a new
-session. If the script cannot be executed, use the same state rules with a
-timestamp or clearly labeled user estimate.
+session. During a long interaction, check `status` before another major work
+block and before closeout so pacing triggers use the system clock. If the
+script cannot be executed, use the same state rules with a timestamp or
+clearly labeled user estimate.
 
 Append a session record even when the learner performs poorly. Record planned
 time separately from actual time. Count active recall, practice, feedback, and
 output as evidence-bearing activity; report passive reading separately.
+Do not treat an immediate repeat as a delayed review. Record the review's delay
+type and interval stage, and keep the next spaced review even when a
+same-session correction was successful.
 When a lesson uses an artifact, append or update its artifact record and link
 the artifact to the session and assessment. Artifact metadata must not be used
 to infer time or mastery without learner evidence.
@@ -243,6 +271,12 @@ and update the checkpoint's decision references and open disputes. Do not
 silently replace a roadmap or assessment. A repeated rejection without new
 evidence must leave the current supported position or an explicit deferred
 dispute, not an improvised third option.
+When a meaningful milestone, pacing trigger, recovery choice, delayed-decay
+adjustment, or plan-alignment correction changes the next action, append one
+`coaching_events.jsonl` record. Store observable evidence, the provisional
+learning interpretation, the action, and the next check; never store an
+inferred diagnosis or psychological label. Link it to the session and point
+the checkpoint at the latest event.
 At closeout, update `checkpoint.json` and the derived dashboard. On the next
 session, use the checkpoint instead of relying on conversation memory.
 
@@ -264,8 +298,9 @@ lesson. Note the evidence behind every reported mastery change.
 
 At the beginning of a study interaction, surface overdue reviews if they are
 relevant. Use `references/review-scheduler.md` to choose intervals and handle
-failures. A review is due when the learner invokes the skill; the MVP does not
-send background notifications.
+failures. Immediate correction is not a due spaced review. A review is due
+when the learner invokes the skill; the MVP does not send background
+notifications.
 
 For reports, separate:
 
@@ -273,11 +308,15 @@ For reports, separate:
 - learning evidence: recall, assessment, retention, and transfer;
 - execution risks: overdue reviews, repeated errors, overload, or missing
   evidence;
+- learning regulation: meaningful progress, fragile progress, stalled work,
+  delayed decay, recovery, and the adjustment taken;
 - next action: one concrete task and its expected evidence.
 
 Use a daily summary after a lesson, a weekly review for trend and adjustment,
 and a periodic assessment for stage decisions. Read
-`references/assessment-rubrics.md` before producing a progress claim.
+`references/assessment-rubrics.md` and
+`references/learning-regulation.md` before producing a progress claim or
+state-sensitive feedback.
 
 ## Recovery behavior
 
@@ -289,6 +328,22 @@ When the learner misses sessions, feels stuck, or has low energy:
 - revisit the smallest unresolved prerequisite;
 - reschedule reviews without moralizing;
 - distinguish a motivation problem from a knowledge gap or an oversized plan.
+
+Use the learner's explicit statement or observed work to choose the response;
+do not label the learner's psychology. Offer a bounded choice such as a
+minimum viable retrieval task or a planned stop. Preserve the current stage
+and open loops unless evidence actually changes them.
+
+## Feedback style
+
+Use a warm, specific, calm, and direct tone. For each meaningful session
+result, state what the evidence shows, why it matters for learning, what will
+change, and what the next check is. Celebrate independent, delayed, transfer,
+or recovery evidence briefly; do not praise every response or turn the rubric
+into an ability score. Visual celebrations or generated congratulations
+artifacts are optional and require learner interest or a real artifact need.
+Playful mock-stern language requires explicit opt-in and must never use shame,
+threats, sarcasm, or pressure during failure or explicit distress.
 
 ## Safety and honesty
 
@@ -304,7 +359,7 @@ For a lesson, use this compact structure:
 
 ```text
 Mode: lesson
-Resume: <current stage, last evidence, open loop, open dispute, and time status>
+Resume: <current stage, last evidence, last feedback, open loop, open dispute, and time status>
 Subject: <subject>
 Objective: <observable objective>
 Evidence today: <what the learner must produce>
@@ -318,12 +373,14 @@ Review evidence: <what the learner should return or what can be inspected>
 
 Check: <one recall or application question>
 Record: <what will be logged after the learner responds>
+Feedback: <specific progress, lag, or missing evidence; include an adjustment only when a trigger exists>
 Next: <next action and provisional review date>
 ```
 
 For a completed session, report actual time, achieved evidence, unresolved
-errors, mastery change with evidence, next action, and next review. For a
-report, include the time/evidence distinction and avoid unsupported precision.
+errors, feedback or adjustment, mastery change with evidence, next action, and
+next spaced review. For a report, include the time/evidence distinction and
+avoid unsupported precision.
 
 When a challenge occurs, add this compact block and then return to the learning
 objective:
