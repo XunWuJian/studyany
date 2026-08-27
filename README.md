@@ -130,6 +130,7 @@ StudyAny keeps current continuity separate from historical evidence:
 .study/reviews.jsonl     retrieval history and due dates
 .study/decisions.jsonl   challenge decisions and route changes
 .study/coaching_events.jsonl meaningful feedback and pacing adjustments
+.study/summaries.jsonl   idempotent weekly, monthly, stage, and overall snapshots
 .study/dashboard.md      derived human-readable summary
 ```
 
@@ -180,6 +181,31 @@ The projection reports `overlong_session`, `behind_pace`, `above_plan`,
 Missing targets and sparse evidence are reported as `not_configured` or
 `insufficient_data`, never as failure. Checks happen when the skill is invoked;
 StudyAny does not run a background notifier.
+
+## Table Summaries
+
+Generate a previous completed calendar period, a stage milestone, or an
+on-demand overall snapshot:
+
+```text
+python .claude/skills/studyany/scripts/study_summary.py --study-root .study generate --kind week
+python .claude/skills/studyany/scripts/study_summary.py --study-root .study generate --kind month --json
+python .claude/skills/studyany/scripts/study_summary.py --study-root .study generate --kind stage --stage-id stage-01
+python .claude/skills/studyany/scripts/study_summary.py --study-root .study generate --kind overall
+python .claude/skills/studyany/scripts/study_summary.py --study-root .study check
+```
+
+`generate-due` checks the previous local week, previous local month, and
+observable stage exit gates. The same period or stage is never appended twice:
+`.study/summaries.jsonl` uses a stable `summary_key`. Stage summaries require
+evidence across the stage concepts, so one ordinary task or session does not
+close a stage. The Markdown report uses tables for period activity, stage and
+overall progress, evidence dimensions, efficiency, reviews, risks, and next
+actions. Missing time, denominators, or evidence remain marked as unknown or
+insufficient rather than being estimated. After a successful
+`study_clock.py stop`, the same due check runs automatically; its result is
+returned as command metadata under `summaries`, while the session record stays
+unchanged.
 
 ## Challenge Handling
 

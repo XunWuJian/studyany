@@ -15,6 +15,7 @@ current pointer, durable history, and a readable summary:
 ├── artifacts.jsonl       # artifact lifecycle and evidence links
 ├── decisions.jsonl       # challenge adjudications and route decisions
 ├── coaching_events.jsonl  # meaningful feedback and pacing adjustments
+├── summaries.jsonl        # generated period and milestone snapshots
 └── dashboard.md          # derived human-readable report
 ```
 
@@ -71,6 +72,11 @@ For every non-setup learning interaction:
    constraint is present. Treat a previous coaching signal as a prompt to
    recheck current evidence, not as a current mood or ability label.
 
+   The same rule applies within an active answer sequence: once a surface slip
+   or correction is resolved, close it. Do not ask the learner to confirm it
+   again unless it recurs, changes the current assessment, or is an exact
+   executable token that still needs verification.
+
 ## Keep Open Loops Small
 
 An open loop is a short item that must be resolved before a progress claim can
@@ -86,6 +92,11 @@ advance. It should contain:
 Record the substance of a pending task, not every question from the dialogue.
 For example, `retrieve the exception category without a cue` is enough to
 resume a review; the entire prior lesson is not required.
+
+Do not create an open loop for an obvious typo, label, or formatting slip that
+does not affect the objective. Keep an open loop only for missing evidence,
+an unresolved consequential error, a material ambiguity, or a next action that
+must be resumed later.
 
 ## Close Every Session
 
@@ -108,6 +119,13 @@ Before ending a learning interaction:
    JSONL events.
 6. End with one concrete next action. A lesson is not persisted merely because
    the assistant displayed a summary in chat.
+
+At a session start, closeout, or explicit state check, run the summary due
+check when a shell is available. It may append the previous completed local
+week/month or a stage whose exit gates are satisfied. It must not append a
+stage summary after every task. `summaries.jsonl` is idempotent by
+`summary_key`, and a missing or partial source record remains visible in the
+summary's data-quality table.
 
 If the learner changes the goal, preserve the old history, update `goals.json`
 and `roadmap.json`, and explain which open loops were deferred or made

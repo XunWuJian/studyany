@@ -147,6 +147,62 @@
       "prompt": "A concept passed after a short delay but failed at its later spaced review, and another review is overdue. Use the analytics to decide the next learning action.",
       "expected_output": "The skill preserves both events, identifies delayed decay, prioritizes a varied retrieval repair for the overdue concept, shortens the next interval, and does not erase the earlier pass.",
       "files": []
+    },
+    {
+      "id": 22,
+      "name": "obvious-typo-does-not-block",
+      "prompt": "During a Python lesson, the exercise asks for an output prediction and an explanation of a default parameter. I answer: '1. hello_word\nai-app\nsep is a new local variable on each call; its value comes from the argument, and it defaults to _ when omitted.' The surrounding exercise clearly expects hello_world, and my reasoning is otherwise correct. Respond as the tutor and continue the lesson.",
+      "expected_output": "The skill treats hello_word as an obvious non-blocking typo, optionally notes the correction once, credits the correct reasoning, and continues without asking the learner to confirm the typo.",
+      "files": []
+    },
+    {
+      "id": 23,
+      "name": "resolved-slip-not-reopened",
+      "prompt": "In the previous turn you already noted that the learner wrote hello_word instead of hello_world, and the learner has continued with the next function task. The learner now submits a correct function definition and one valid call. Respond to this latest answer only.",
+      "expected_output": "The skill does not ask about hello_word again or reopen the resolved issue. It evaluates the current function task and gives one relevant next action.",
+      "files": []
+    },
+    {
+      "id": 24,
+      "name": "correct-but-incomplete-multipart-answer",
+      "prompt": "The exercise asks me to define total_price(price, count=1, discount=0.0), demonstrate two calls including one without count, and predict both outputs before running code. I submit: 'def total_price(price, count=1, discount=0.0): return price * count * (1 - discount)\n\ntotal_price(1)'. Respond after this attempt, without rechecking an earlier typo.",
+      "expected_output": "The skill credits the correct definition and first call, says the task is correct but incomplete, identifies the missing second call and output predictions, and gives one next action without revealing the requested predictions prematurely.",
+      "files": []
+    },
+    {
+      "id": 25,
+      "name": "execution-context-is-conditional",
+      "prompt": "A learner pastes a Python function followed by a standalone call but does not say whether the code is in a script, a REPL, or a notebook. Explain what evidence is still missing for an output-prediction exercise.",
+      "expected_output": "The skill distinguishes static code inspection from runtime evidence, describes display behavior conditionally across script and interactive environments, and does not claim that nothing will appear or that the code was executed.",
+      "files": []
+    },
+    {
+      "id": 26,
+      "name": "clarify-only-when-material",
+      "prompt": "The learner uses an abbreviated answer label and makes a clear one-character typo, but the explanation and intended result are unambiguous. Continue the lesson without turning the label or typo into a clarification question.",
+      "expected_output": "The skill accepts the semantic answer, silently normalizes or briefly notes the surface slip, and asks a clarification only if an actual ambiguity would change scoring or the next action.",
+      "files": []
+    },
+    {
+      "id": 27,
+      "name": "exercise-constraints-survive-feedback",
+      "prompt": "The exercise explicitly says: do not look anything up, do not receive hints, predict the output first, and only then write code. The learner has not attempted the question yet. Start the exercise.",
+      "expected_output": "The skill preserves all four constraints, asks for the prediction before code, and does not provide a hint, external source, or solution before the attempt.",
+      "files": []
+    },
+    {
+      "id": 28,
+      "name": "surface-format-is-not-a-new-assessment",
+      "prompt": "The learner gives the correct conceptual answer but uses the wrong list number and has a harmless spelling error. The requested concept is clear and the exact spelling is not part of the objective.",
+      "expected_output": "The skill credits the conceptual evidence, does not create a new score or open loop for the formatting mistakes, and moves to the next learning action.",
+      "files": []
+    },
+    {
+      "id": 29,
+      "name": "natural-active-turn-feedback",
+      "prompt": "A study session is already in progress and the resume state was shown at the start. The learner answers one practice question correctly but omits one requested example. Give the next tutor response.",
+      "expected_output": "The skill uses a concise conversational response that acknowledges the correct part, identifies the one missing example, and gives one next action without repeating the full Resume, Record, and analytics template.",
+      "files": []
     }
   ]
 }

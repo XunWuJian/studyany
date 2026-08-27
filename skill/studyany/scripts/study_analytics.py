@@ -177,6 +177,14 @@ def _window(as_of: date, kind: str) -> Tuple[date, date, int]:
         start = as_of - timedelta(days=as_of.weekday())
         end = start + timedelta(days=6)
         return start, end, (as_of - start).days + 1
+    if kind == "month":
+        start = as_of.replace(day=1)
+        if start.month == 12:
+            next_month = date(start.year + 1, 1, 1)
+        else:
+            next_month = date(start.year, start.month + 1, 1)
+        end = next_month - timedelta(days=1)
+        return start, end, (as_of - start).days + 1
     if kind == "rolling-7d":
         return as_of - timedelta(days=6), as_of, 7
     raise ValueError("unsupported window: %s" % kind)
@@ -522,6 +530,7 @@ def _review_metrics(
     window_attempts = []
     delayed_attempts = []
     transfer_pass_count = 0
+    transfer_attempt_count = 0
     per_concept_streaks: Dict[str, int] = {}
     delayed_decay: List[Dict[str, Any]] = []
     for concept_id, values in review_groups.items():
@@ -539,7 +548,16 @@ def _review_metrics(
                 reasons.append("invalid_review_result")
                 continue
             delayed_attempts.append(row)
-            if result == "transfer_pass":
+            is_transfer = (
+                _is_true(row.get("is_transfer"))
+                or _is_true(row.get("transfer"))
+                or row.get("prompt_type") == "transfer"
+                or row.get("kind") == "transfer"
+                or result == "transfer_pass"
+            )
+            if is_transfer:
+                transfer_attempt_count += 1
+            if result == "transfer_pass" and is_transfer:
                 transfer_pass_count += 1
             if result == "fail":
                 streak += 1
@@ -574,7 +592,7 @@ def _review_metrics(
     delayed_failures = sum(1 for row in delayed_attempts if row.get("result") in FAIL_RESULTS)
     overdue = [item for item in due_items if item["overdue"]]
     delayed_pass_rate = delayed_passes / len(delayed_attempts) if delayed_attempts else None
-    transfer_pass_rate = transfer_pass_count / len(delayed_attempts) if delayed_attempts else None
+    transfer_pass_rate = transfer_pass_count / transfer_attempt_count if transfer_attempt_count else None
     target_minutes = _profile_target(profile, "target_minutes_per_week", reasons)
     preferred_session = _profile_target(profile, "preferred_session_minutes", reasons)
     if target_minutes is not None and preferred_session is not None:
@@ -603,6 +621,7 @@ def _review_metrics(
         "delayed_pass_count": delayed_passes,
         "delayed_failure_count": delayed_failures,
         "delayed_pass_rate": _round(delayed_pass_rate),
+        "transfer_attempt_count": transfer_attempt_count,
         "transfer_pass_count": transfer_pass_count,
         "transfer_pass_rate": _round(transfer_pass_rate),
         "failure_streaks": {key: value for key, value in sorted(per_concept_streaks.items()) if value},
@@ -1004,7 +1023,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Compute StudyAny learning analytics.")
     parser.add_argument("--study-root", type=Path, default=Path(".study"))
     parser.add_argument("--as-of", help="local ISO date used for deterministic analysis")
-    parser.add_argument("--window", choices=("week", "rolling-7d"), default="week")
+    parser.add_argument("--window", choices=("week", "month", "rolling-7d"), default="week")
     parser.add_argument("--json", action="store_true", dest="json_output")
     args = parser.parse_args(argv)
     try:

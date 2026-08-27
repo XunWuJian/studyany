@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from study_analytics import analyze as analyze_study
+from study_summary import SummaryError, generate_due as generate_due_summaries
 
 
 class StateError(Exception):
@@ -513,6 +514,11 @@ def print_human(state: Dict[str, Any]) -> None:
         print("Analytics alert: %s" % alert.get("code", "unknown"))
     recommendation = analytics.get("recommendation") or {}
     print("Analytics next action: %s" % recommendation.get("code", "none"))
+    summaries = state.get("summaries") or {}
+    if summaries:
+        print("Summaries generated: %s" % summaries.get("generated_count", 0))
+        for item in summaries.get("generated", [])[:5]:
+            print("Summary: %s" % item.get("summary_key", "unknown"))
     for warning in state.get("warnings") or []:
         print("Warning: %s" % warning)
 
@@ -530,7 +536,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     study_root = args.study_root
     if not study_root.exists():
         raise StateError("study root does not exist: %s" % study_root)
+    summary_result = None
+    if args.command == "status":
+        try:
+            summary_result = generate_due_summaries(study_root)
+        except (OSError, SummaryError, ValueError) as exc:
+            summary_result = {"error": str(exc), "generated_count": 0, "generated": []}
     state = build_state(study_root)
+    if summary_result is not None:
+        state["summaries"] = summary_result
+        if summary_result.get("error"):
+            state["warnings"].append("summary generation failed: %s" % summary_result["error"])
     if args.command == "rebuild":
         checkpoint_path = study_root / "checkpoint.json"
         if checkpoint_path.exists() and not args.force:

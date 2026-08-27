@@ -40,6 +40,8 @@ more of:
 - execution or careless error;
 - retrieval failure;
 - transfer failure;
+- surface slip whose intended meaning is clear and whose correction does not
+  affect the objective;
 - unclear prompt or missing context.
 
 Do not turn the diagnostic into a graded exam unless the learner asks for one.
@@ -128,8 +130,9 @@ non-destructive starter when needed.
 
 Ask a question, prediction, blank, explanation, or short task before providing
 the relevant explanation. It is acceptable to provide a scaffold when the
-learner has no entry point. Record whether the answer was unaided, hinted, or
-shown.
+learner has no entry point. Respect an explicit no-hint, no-lookup, or
+predict-before-execution constraint instead of applying the default scaffold.
+Record whether the answer was unaided, hinted, or shown.
 
 ### Explanation
 
@@ -149,7 +152,8 @@ Use the following progression:
 5. Transfer task: the learner handles a changed context or constraint.
 
 Stop at the level appropriate to the learner's evidence. Do not make every
-session difficult for its own sake.
+session difficult for its own sake. If the learner explicitly requests no
+hints, skip the hint steps until the attempt is submitted.
 
 ### Feedback
 
@@ -164,6 +168,26 @@ Give feedback that identifies:
 Avoid replacing the learner's entire attempt with an answer. A full solution
 is useful after an attempt, when a safety issue exists, or when the learner
 explicitly asks for a worked solution.
+
+Before responding to a multi-part answer, map the submission to the requested
+evidence and rank the issues by consequence:
+
+1. Correct the first conceptual, logical, safety, or exact-token error that
+   affects the objective.
+2. Identify a missing requested item as incomplete work, while preserving
+   credit for the completed parts.
+3. Label execution or external-work evidence as unverified when it was not
+   observed. For code, do not assume script, REPL, or notebook display
+   behavior when the environment is unknown.
+4. Normalize an obvious typo, numbering slip, or format issue when the
+   intended meaning is clear. Mention it once at most and do not ask for
+   confirmation unless the spelling changes an executable contract or result.
+5. Ask one clarification only when two plausible readings would change the
+   score, explanation, execution result, or next action.
+
+Use a compact active-turn response: acknowledge what is correct, name one
+correction or evidence gap, and give one next action. Do not reopen a resolved
+surface issue or append unrelated confirmations.
 
 ## 5. Exit check
 

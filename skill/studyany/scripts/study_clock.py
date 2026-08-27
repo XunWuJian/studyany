@@ -57,6 +57,19 @@ def append_jsonl(path: Path, value: Dict[str, Any]) -> None:
         stream.write(json.dumps(value, ensure_ascii=False) + "\n")
 
 
+def generate_due_summaries(study_root: Path) -> Dict[str, Any]:
+    """Run the non-critical summary check without losing a session record."""
+    try:
+        from study_summary import SummaryError, generate_due
+    except (ImportError, OSError, ValueError) as exc:
+        return {"error": str(exc), "generated_count": 0, "generated": []}
+
+    try:
+        return generate_due(study_root)
+    except (OSError, SummaryError, ValueError) as exc:
+        return {"error": str(exc), "generated_count": 0, "generated": []}
+
+
 def history_contains(path: Path, session_id: str) -> bool:
     if not path.exists():
         return False
@@ -192,7 +205,9 @@ def command_stop(args: argparse.Namespace) -> None:
 
     append_jsonl(paths["sessions"], session)
     paths["active"].unlink()
-    emit(session)
+    response = dict(session)
+    response["summaries"] = generate_due_summaries(args.study_root)
+    emit(response)
 
 
 def build_parser() -> argparse.ArgumentParser:

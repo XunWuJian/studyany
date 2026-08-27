@@ -89,6 +89,7 @@ event:
     "due_count": 0,
     "overdue_count": 0,
     "delayed_pass_rate": null,
+    "transfer_attempt_count": 0,
     "transfer_pass_rate": null,
     "capacity": {"status": "not_configured"},
     "delayed_decay": []
@@ -114,6 +115,72 @@ Stable alert codes include `overlong_session`, `maximum_exceeded`,
 `delayed_decay`, `fragile_progress`, `stalled_progress`, and
 `overload_risk`. `insufficient_data`, `no_target`, and missing-duration notes
 are data-quality states, not failure judgments.
+
+## summaries.jsonl
+
+`summaries.jsonl` is an append-only log of generated report snapshots. It is
+derived from the other records and can be deleted and regenerated; it must not
+be used to overwrite source evidence. A stable `summary_key` makes generation
+idempotent:
+
+```json
+{
+  "summary_id": "summary-week-2026-08-03..2026-08-09",
+  "summary_key": "week:2026-08-03..2026-08-09",
+  "kind": "week|month|stage|overall",
+  "as_of": "2026-08-10",
+  "period": {
+    "kind": "week",
+    "start": "2026-08-03",
+    "end": "2026-08-09",
+    "key": "2026-08-03..2026-08-09"
+  },
+  "trigger": {"eligible": true, "reason": "period_complete"},
+  "generated_at": "2026-08-10T09:00:00+08:00",
+  "content_language": "zh-CN",
+  "subject": "example subject",
+  "goal": "independently perform a defined task",
+  "data_quality": {
+    "status": "complete|partial|insufficient_data",
+    "reasons": []
+  },
+  "snapshot": {
+    "version": 1,
+    "summary_key": "week:2026-08-03..2026-08-09",
+    "kind": "week",
+    "as_of": "2026-08-10",
+    "period": {
+      "kind": "week",
+      "start": "2026-08-03",
+      "end": "2026-08-09",
+      "key": "2026-08-03..2026-08-09"
+    },
+    "trigger": {
+      "eligible": true,
+      "reason": "period_complete|stage_exit_evidence_satisfied|on_demand"
+    },
+    "progress": {},
+    "goal_evidence": {},
+    "stage_projection": {},
+    "evidence": {},
+    "efficiency": {},
+    "reviews": {},
+    "risks": [],
+    "next_actions": []
+  },
+  "markdown": "# StudyAny learning summary ..."
+}
+```
+
+Weekly and monthly summaries describe the previous completed local calendar
+period. Stage summaries are saved only when the stage's required observable
+exit gates are met across its concepts. A single session or task does not
+qualify as a stage summary. Overall progress reports completed required stages
+and observed goal evidence; it must not invent a single mastery percentage.
+Efficiency is a set of measured indicators. In particular,
+`transfer_pass_rate` uses `transfer_attempt_count` as its denominator, not all
+delayed review attempts. Unknown time, denominators, or evidence remain
+`null`/`insufficient_data`.
 
 ## goals.json
 
@@ -155,6 +222,27 @@ are data-quality states, not failure judgments.
   "updated_at": "2026-08-03T19:00:00+08:00"
 }
 ```
+
+Stages may optionally define machine-readable exit gates. If omitted, the
+summary generator requires retrieval and independent application evidence by
+default, and infers transfer/retention requirements only when the exit
+criteria explicitly ask for them:
+
+```json
+{
+  "exit_requirements": {
+    "retrieval": {"required": true, "per_concept": true, "min_score": 0.75},
+    "application": {"required": true, "per_concept": true, "min_score": 0.75, "independent": true},
+    "transfer": {"required": false, "min_score": 0.75},
+    "retention": {"required": false, "min_score": 0.75},
+    "no_repeated_failures": true
+  }
+}
+```
+
+An exit gate is satisfied by observed assessment or review evidence across the
+stage concepts. A stage status value or one completed session is not evidence
+of a completed stage.
 
 ## checkpoint.json
 
@@ -355,6 +443,10 @@ not copy the open record into the history log manually or start a second
 session while it exists. The session ID is the idempotence key: if a stop is
 retried after the event was appended, do not append a duplicate.
 
+After the append, `study_clock.py stop` may run the due-summary check. Its JSON
+response can include a `summaries` object with generated keys or an error, but
+that response metadata is not written into the session record.
+
 ## reviews.jsonl
 
 ```json
@@ -366,6 +458,8 @@ retried after the event was appended, do not append a duplicate.
   "reviewed_at": "2026-08-03T19:15:00+08:00",
   "result": "fail|hinted|pass|transfer_pass",
   "delay_type": "same_session|next_day|spaced|maintenance",
+  "prompt_type": "recall|transfer|null",
+  "is_transfer": false,
   "interval_stage": "repair|1d|3d|7d|14d|30d|60d",
   "same_session": false,
   "confidence_before": 0.7,

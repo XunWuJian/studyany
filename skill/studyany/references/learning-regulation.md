@@ -30,7 +30,8 @@ the task to one smaller step?
 ```
 
 If there is no trigger, do not comment on the learner's presumed state. Keep
-teaching normally.
+teaching normally. A single obvious typo, numbering slip, or formatting issue
+is not a learning-regulation trigger when the intended meaning is clear.
 
 ## 2. Keep two clocks
 
@@ -143,6 +144,14 @@ numbers, one adjustment, and the next check.
 
 ## 4. Feedback protocol
 
+Before applying this protocol, rank feedback by consequence. A conceptual,
+logical, safety, or exact-token error comes before an incomplete deliverable;
+an incomplete deliverable comes before an unverified execution claim; and an
+obvious surface slip is non-blocking when its meaning is clear. Ask for
+clarification only when the answer would change correctness, execution, or the
+next action. Close a resolved slip or correction instead of carrying it into
+the next reply as a confirmation question.
+
 Use this order when a trigger or meaningful milestone is present:
 
 1. **Observation:** name the evidence without a character judgment.
@@ -176,6 +185,11 @@ Every session closeout with meaningful evidence must include one specific
 feedback statement. If there is no progress or setback, say so neutrally and
 name the evidence still missing. Encouragement should credit the learner's
 strategy, attempt, correction, or persistence, not an unverified trait.
+
+During an active exercise, this closeout protocol does not require a full state
+summary. Give the learner the smallest useful content feedback and one next
+action; reserve Resume, Record, and review details for session boundaries or
+explicit reports.
 
 ## 5. Durable encouragement and small creative touches
 
