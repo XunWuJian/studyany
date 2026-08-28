@@ -153,6 +153,33 @@ class StudyAnalyticsTest(unittest.TestCase):
         self.assertEqual(result["time"]["measurement_status"], "unknown")
         self.assertIn("unknown_duration", result["data_quality"]["reasons"])
 
+    def test_multi_day_interrupted_span_is_not_counted_as_study_time(self):
+        self.write_jsonl(
+            "sessions.jsonl",
+            [
+                self.session("normal", "2026-08-03", 30),
+                {
+                    "session_id": "interrupted",
+                    "started_at": "2026-08-04T10:00:00+08:00",
+                    "ended_at": "2026-08-08T10:00:00+08:00",
+                    "duration_min": 5760,
+                    "status": "interrupted",
+                },
+            ],
+        )
+
+        result = analyze(self.root, as_of="2026-08-08")
+
+        self.assertEqual(result["time"]["measured_session_count"], 1)
+        self.assertEqual(result["time"]["session_count"], 1)
+        self.assertEqual(result["time"]["study_days"], 1)
+        self.assertEqual(result["time"]["planned_minutes"], None)
+        self.assertEqual(result["time"]["actual_minutes"], 30.0)
+        self.assertEqual(result["time"]["excluded_session_count"], 1)
+        self.assertEqual(result["time"]["excluded_session_ids"], ["interrupted"])
+        self.assertIn("interrupted_duration_unreliable", result["data_quality"]["reasons"])
+        self.assertEqual(result["data_quality"]["status"], "partial")
+
     def test_active_session_can_trigger_pacing_without_counting_as_completed(self):
         started_at = (datetime.now().astimezone() - timedelta(minutes=65)).isoformat()
         self.write_json(

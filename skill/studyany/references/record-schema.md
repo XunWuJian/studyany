@@ -43,8 +43,8 @@ appropriate for it.
 `target_study_days` are optional commitments used by the deterministic
 analytics report. If no target is configured, report `not_configured` rather
 than treating the learner as behind. `maximum_session_minutes` is an optional
-elapsed-time ceiling used for pacing alerts; it is not a measure of active
-attention.
+elapsed-time ceiling used for pacing alerts; it is not a measure of learning
+quality.
 
 ## analytics projection
 
@@ -71,6 +71,7 @@ event:
     "actual_minutes": 45,
     "measurement_status": "measured|no_sessions|unknown",
     "session_count": 1,
+    "excluded_session_count": 0,
     "session_count_status": "known|unknown",
     "measured_session_count": 1,
     "unknown_duration_count": 0,
@@ -144,6 +145,10 @@ idempotent:
     "status": "complete|partial|insufficient_data",
     "reasons": []
   },
+  "workbook_path": "study-reports/studyany-week-2026-08-03..2026-08-09.xlsx",
+  "workbook_format": "xlsx",
+  "workbook_schema_version": 2,
+  "workbook_sheets": ["结论与计划", "学习进展", "能力证据", "复习与后续计划"],
   "snapshot": {
     "version": 1,
     "summary_key": "week:2026-08-03..2026-08-09",
@@ -167,8 +172,7 @@ idempotent:
     "reviews": {},
     "risks": [],
     "next_actions": []
-  },
-  "markdown": "# StudyAny learning summary ..."
+  }
 }
 ```
 
@@ -181,6 +185,36 @@ Efficiency is a set of measured indicators. In particular,
 `transfer_pass_rate` uses `transfer_attempt_count` as its denominator, not all
 delayed review attempts. Unknown time, denominators, or evidence remain
 `null`/`insufficient_data`.
+
+The learner-facing report is the `.xlsx` workbook at `workbook_path`, written
+to `<current-working-directory>/study-reports/` by default. Generated records
+store the resolved path; if a consumer supplies a relative path, it is resolved
+against the current working directory. A learner-facing report contains four
+sheets: `结论与计划` puts the conclusion, goal, current situation, next plan,
+and expected result first; `学习进展` shows period records, stage progress,
+time, and explicitly recorded learning conditions; `能力证据` shows the
+different kinds of observed ability; and `复习与后续计划` lists review dates
+and the next plan. The standalone developer template has one additional
+`自定义文字` sheet. That sheet is never copied into a learner-facing report.
+Its first column is a stable key and its second column can be changed. A saved
+template can be passed with `--template <path>`; this changes display text only
+and never changes source records or assessment rules. The structured
+`snapshot` remains in `summaries.jsonl` for machine use. Older records that
+contain a `markdown` field or old workbook sheet names are upgraded to the
+current workbook contract the next time the same summary is generated; old
+Markdown text is not used as the learner-facing report.
+
+The period snapshot may include `learning_state.energy` and
+`learning_state.distraction`. These values are copied only from explicit
+session fields and are secondary observations; the generator does not infer a
+learner's mood or condition from scores, frequency, wording, or missing values.
+
+If an interrupted session has a recorded duration greater than
+`MAX_RELIABLE_INTERRUPTED_MINUTES`, it is treated as a clearly broken record:
+it is excluded from session count, study days, planned minutes, actual minutes,
+and learning-state observations. Its exclusion is retained in `data_quality`
+and the workbook's data notes. Other reliable records in the same period are
+still counted.
 
 ## goals.json
 
@@ -415,8 +449,6 @@ position; it is not a claim that the route is universally optimal.
   "evidence_mode": "conversation|artifact|mixed",
   "planned_minutes": null,
   "objectives": ["objective-01"],
-  "active_minutes": 35,
-  "passive_minutes": 10,
   "recall_score": 0.75,
   "practice_score": 0.8,
   "confidence_before": 0.6,
@@ -434,8 +466,15 @@ position; it is not a claim that the route is universally optimal.
 }
 ```
 
-`active_minutes` and `passive_minutes` are optional. When not measured, use
-`null` rather than claiming precision.
+The session record keeps total elapsed learning time in `duration_min` and an
+optional planned duration in `planned_minutes`. It does not classify that time
+as active or passive. Learning evidence is recorded separately through
+assessments, reviews, artifacts, and the session's evidence references.
+
+Older records may still contain `active_minutes` or `passive_minutes` from an
+earlier schema. Readers ignore those fields and do not recreate the
+classification in analytics or workbooks; historical source lines are not
+rewritten.
 
 When the bundled clock is used, an open `in_progress` record is stored at
 `.study/active-session.json` until `stop` appends it to `sessions.jsonl`. Do
@@ -443,9 +482,30 @@ not copy the open record into the history log manually or start a second
 session while it exists. The session ID is the idempotence key: if a stop is
 retried after the event was appended, do not append a duplicate.
 
-After the append, `study_clock.py stop` may run the due-summary check. Its JSON
-response can include a `summaries` object with generated keys or an error, but
-that response metadata is not written into the session record.
+After the append, `study_clock.py stop` runs a read-only due-summary check. Its
+JSON response can include a `summaries` object with
+`status: "awaiting_confirmation"`, `due_summaries`, and a learner-facing
+`prompt`, or a check error. It does not create a workbook or append
+`summaries.jsonl`; the caller must ask the learner and run `generate-due` only
+after an explicit confirmation. This response metadata is not written into the
+session record.
+
+The automatic check uses the following non-persistent result fields:
+
+```json
+{
+  "status": "awaiting_confirmation|up_to_date",
+  "confirmation_required": true,
+  "due_count": 2,
+  "due_summaries": [],
+  "prompt": "Generate the listed summaries now?"
+}
+```
+
+`generated` remains empty and `generated_count` remains zero in this check
+result. A caller may run `study_summary.py generate-due` only after the learner
+explicitly agrees; that command then writes the workbooks and appends the
+corresponding snapshots.
 
 ## reviews.jsonl
 

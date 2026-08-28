@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Generate deterministic, table-oriented StudyAny learning summaries."""
+"""Generate deterministic StudyAny learning summaries as Excel workbooks."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import re
 import sys
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -17,7 +19,13 @@ try:
 except ImportError:  # pragma: no cover - Python versions without zoneinfo
     ZoneInfo = None  # type: ignore
 
-from study_analytics import analyze as analyze_analytics
+from study_analytics import MAX_RELIABLE_INTERRUPTED_MINUTES, analyze as analyze_analytics
+from study_workbook import (
+    read_template_labels,
+    summary_sheet_names,
+    write_summary_workbook,
+    write_template_workbook,
+)
 
 
 DIMENSIONS = ("understanding", "retrieval", "application", "transfer", "retention")
@@ -32,6 +40,7 @@ RESULT_SCORES = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}
 REVIEW_SCORES = {"fail": 0.0, "hinted": 0.5, "pass": 1.0, "transfer_pass": 1.0}
 VALID_REVIEW_RESULTS = set(REVIEW_SCORES)
 PERIOD_KINDS = {"week", "month"}
+WORKBOOK_SCHEMA_VERSION = 2
 
 
 LABELS = {
@@ -76,7 +85,6 @@ LABELS = {
         "stage_exit": "Stage exit",
         "independent_task": "Independent task",
         "actual_planned": "Actual / planned time",
-        "active_share": "Active-time share",
         "delayed_pass_rate": "Delayed-review pass rate",
         "transfer_rate": "Transfer pass rate",
         "evidence_trend": "Comparable evidence trend",
@@ -128,6 +136,25 @@ LABELS = {
         "unknown_goal": "Goal not configured",
         "unknown_subject": "Subject not configured",
         "period_start": "Period",
+        "period_end": "Period end",
+        "period": "Period",
+        "subject": "Subject",
+        "goal": "Goal",
+        "days": "days",
+        "actual": "Actual",
+        "planned": "Planned / baseline",
+        "rate": "Rate",
+        "recent": "Recent mean",
+        "previous": "Previous mean",
+        "passing": "Passing",
+        "trigger": "Eligible",
+        "concept": "Concept",
+        "priority": "Priority",
+        "normal": "normal",
+        "workbook": "Workbook",
+        "workbook_sheets": "Sheets",
+        "generated_count": "Generated summaries",
+        "no_new_summaries": "No new summaries were generated.",
         "recorded": "recorded",
         "current": "current",
         "completed": "completed",
@@ -179,7 +206,6 @@ LABELS = {
         "stage_exit": "阶段出口",
         "independent_task": "独立任务",
         "actual_planned": "实际 / 计划时间",
-        "active_share": "主动学习时间占比",
         "delayed_pass_rate": "延迟复习通过率",
         "transfer_rate": "迁移通过率",
         "evidence_trend": "可比较证据变化",
@@ -231,17 +257,641 @@ LABELS = {
         "unknown_goal": "尚未配置学习目标",
         "unknown_subject": "尚未配置学习主题",
         "period_start": "周期",
+        "period_end": "周期结束",
+        "period": "周期",
+        "subject": "主题",
+        "goal": "目标",
+        "days": "天",
+        "actual": "实际",
+        "planned": "计划 / 基准",
+        "rate": "比率",
+        "recent": "近期均值",
+        "previous": "前期均值",
+        "passing": "通过数",
+        "trigger": "达到条件",
+        "concept": "概念",
+        "priority": "优先级",
+        "normal": "普通",
+        "workbook": "Excel 文件",
+        "workbook_sheets": "工作表",
+        "generated_count": "生成总结数",
+        "no_new_summaries": "没有新的总结需要生成。",
         "recorded": "已记录",
         "current": "当前",
         "completed": "已完成",
         "required": "必需",
         "missing_evidence": "缺少证据",
-        "overdue_review_action": "先复习逾期内容，再加入新内容。",
+        "overdue_review_action": "优先完成逾期内容的复习，再安排新内容。",
         "collect_evidence_action": "补充一条独立、延迟或变式情境证据。",
-        "stage_action": "先完成阶段出口中最小的缺失证据项。",
+        "stage_action": "完成当前阶段缺少的最小证明项。",
         "continue_action": "继续下一个路线目标，并保留下一次间隔复习。",
     },
 }
+
+
+# The raw analytics labels above remain available for the structured report
+# contract. These presentation labels are intentionally written for a first-
+# time learner; the custom-label sheet can override them without changing the
+# underlying evidence or scoring rules.
+FRIENDLY_LABELS = {
+    "en": {
+        "data_quality": "Record completeness",
+        "overview": "Start here",
+        "progress": "Learning progress",
+        "stage_gates": "What is still needed before moving on",
+        "evidence": "What you can do",
+        "efficiency": "How your time was used",
+        "reviews_risks": "Next steps and reminders",
+        "next_actions": "Next steps",
+        "period_learning": "What happened in this period",
+        "stage_progress": "Stage progress",
+        "overall_progress": "Overall progress",
+        "goal_evidence": "Proof of the final goal",
+        "sessions": "sessions",
+        "study_time": "time spent",
+        "study_days": "study days",
+        "assessments": "practice checks",
+        "review_attempts": "reviews",
+        "required_stages": "required stages",
+        "current_stage": "current stage",
+        "actual_planned": "time recorded / planned",
+        "delayed_pass_rate": "remembered after a delay",
+        "transfer_rate": "worked on a new example",
+        "retrieval": "Can you remember it without looking?",
+        "understanding": "Can you explain it in your own words?",
+        "application": "Can you do a similar task yourself?",
+        "transfer": "Can you do it with a new example?",
+        "retention": "Can you still do it after a few days?",
+        "retrieval_gate": "Remember it without looking",
+        "application_gate": "Do a similar task yourself",
+        "transfer_gate": "Do a new example",
+        "retention_gate": "Remember it after a delay",
+        "retrieval_gate": "Remember it without looking",
+        "application_gate": "Do a similar task yourself",
+        "transfer_gate": "Do a new example",
+        "retention_gate": "Remember it after a delay",
+        "met": "ready",
+        "not_ready": "not ready yet",
+        "not_required": "not needed yet",
+        "insufficient_data": "more records needed",
+        "complete": "records are complete",
+        "partial": "some records are incomplete",
+        "measured": "recorded",
+        "no_sessions": "no study in this period",
+        "warn": "needs attention",
+        "open": "to do",
+        "unknown": "not known yet",
+        "not_configured": "not set up",
+        "satisfied": "done",
+        "missing": "still missing",
+        "no_history": "there are no study records",
+        "none": "none",
+        "minutes": "min",
+        "period_reason": "records inside this period",
+        "unknown_data": "not enough records to tell",
+        "period_start": "Period",
+        "period_end": "Period end",
+        "period": "Period",
+        "actual": "Recorded",
+        "planned": "Planned",
+        "rate": "Share",
+        "recent": "Recent results",
+        "previous": "Earlier results",
+        "passing": "Passed",
+        "trigger": "Ready",
+        "concept": "Topic",
+        "priority": "Priority",
+        "normal": "normal",
+        "missing_evidence": "missing proof",
+        "overdue_review_action": "Review the overdue topic before starting something new.",
+        "collect_evidence_action": "Do one small task without help, or try a changed example.",
+        "stage_action": "Complete the smallest missing proof for the current stage.",
+        "continue_action": "Continue the next small task and keep the next spaced review.",
+        "start_here": "Start here",
+        "one_sentence": "One-sentence conclusion",
+        "your_situation": "Your current situation",
+        "focus_now": "Your one priority",
+        "why_this": "Why this comes first",
+        "proof": "What to show next",
+        "where_now": "Where you are",
+        "learning_progress": "Learning progress",
+        "data_note": "Record note",
+        "ability_changes": "What you can do",
+        "next_steps": "What to do next",
+        "review_list": "Reviews to do",
+        "item": "Item",
+        "now": "Current result",
+        "what_means": "What it means",
+        "recorded_times": "Times recorded",
+        "recent_performance": "Recent results",
+        "change_simple": "Change",
+        "goal_position": "Final goal",
+        "time_spent": "Time spent",
+        "study_sessions": "Study sessions",
+        "checks_done": "Practice checks",
+        "reviews_done": "Reviews",
+        "next_action": "Next action",
+        "overdue": "overdue",
+        "not_due": "due today",
+        "high": "high",
+        "reminder": "Reminder",
+        "recommendation": "Suggested action",
+        "no_due_reviews": "No reviews are due",
+        "no_risks": "No special reminders",
+        "custom_labels_title": "Custom labels",
+        "period_range": "Report range",
+        "to": "to",
+        "meaning_label": "In short",
+        "data_note_label": "How to read this",
+        "time_meaning": "Time shows effort, not proof that the skill is learned.",
+        "sessions_meaning": "Sessions show whether practice is continuing.",
+        "days_meaning": "Spreading practice over days helps memory.",
+        "checks_meaning": "Checks show whether you can do the task.",
+        "reviews_meaning": "A delayed review shows whether you still remember.",
+        "overall_stage_note": "Based on stage requirements, not time spent",
+        "goal_note": "A result is needed, not just exposure",
+        "evidence_intro": "This is not one total score. It looks at five different kinds of learning.",
+        "ability_changes_note": "Read the words in the second column first; the percentages are supporting detail.",
+        "how_to_read": "How to read this",
+        "evidence_explanation": "One correct answer proves only that attempt. Delayed and changed-example work makes the conclusion stronger.",
+        "review_meaning": "A spaced review checks whether the idea stayed with you.",
+        "risk_note": "This is a next-step reminder, not a judgment of you.",
+        "no_due_reviews_note": "Continue the current small practice task.",
+        "overdue_note": "Do this before adding new material.",
+        "normal_note": "Complete it as planned.",
+        "stage_not_ready_short": "more proof is needed",
+        "stage_ready_short": "ready to prepare for the next stage",
+        "risk_data_quality": "Some records are incomplete, so part of the summary is only a reference.",
+        "risk_stage_gate": "The current stage still needs its entry proof.",
+        "risk_review_backlog": "A topic has reached its review date.",
+        "risk_fragile_progress": "Recent work looks okay, but new-example or delayed proof is missing.",
+        "risk_stalled_progress": "Recent records have not changed much; use a smaller task.",
+        "risk_delayed_decay": "A previously correct topic was missed after a delay.",
+        "risk_overlong_session": "One study block was unusually long; split the next one.",
+        "risk_overload_risk": "Time and learning evidence both need attention.",
+        "records_good": "The available records are usable for this summary.",
+        "not_enough_records": "There are not enough records yet to make a useful conclusion.",
+        "no_records_headline": "There is not enough learning evidence yet. Start with one small task that leaves a result.",
+        "template_headline": "The main conclusion will appear here first.",
+        "template_situation": "This explains what you can do and what is still missing.",
+        "template_focus": "Your single most useful next action will appear here.",
+        "template_why": "This explains why that action comes first.",
+        "template_proof": "This describes the evidence to return.",
+        "template_data_note": "These are examples; a real summary will replace them with your records.",
+        "template_action": "Complete one small practice task and save the result.",
+        "subject_placeholder": "Your subject",
+        "goal_placeholder": "Your observable learning goal",
+        "stage_placeholder": "Current stage",
+        "stage_not_configured": "No stage requirements are set",
+        "gate_satisfied": "Enough records are present",
+        "gate_insufficient": "No record of this kind yet",
+        "gate_still_needed": "but more is needed",
+        "gate_missing": "More records are needed",
+        "missing_topics": "Focus",
+        "no_repeated_failures_meaning": "Avoid repeated review failures",
+        "delayed_rate_meaning": "A higher rate means more topics stayed usable after a delay.",
+        "review_rate_missing": "More delayed-review records are needed",
+        "transfer_rate_meaning": "A new example checks understanding rather than memorization.",
+        "transfer_rate_missing": "No new-example practice is recorded yet",
+        "risk_detail_default": "This needs another check in the next practice.",
+    },
+    "zh": {
+        "data_quality": "记录完整度",
+        "overview": "结论与计划",
+        "progress": "学习进度",
+        "stage_gates": "阶段完成条件",
+        "evidence": "能力证据",
+        "efficiency": "学习投入与复习情况",
+        "reviews_risks": "下一步和需要留意的事",
+        "next_actions": "下一步行动",
+        "period_learning": "本期学习记录",
+        "stage_progress": "阶段进度",
+        "overall_progress": "总进度",
+        "goal_evidence": "最终目标的成果证明",
+        "sessions": "次",
+        "study_time": "花费时间",
+        "study_days": "学习天数",
+        "assessments": "练习或检查",
+        "review_attempts": "复习",
+        "required_stages": "个必需阶段",
+        "current_stage": "当前阶段",
+        "actual_planned": "记录时间 / 计划时间",
+        "delayed_pass_rate": "间隔复习结果",
+        "transfer_rate": "变换题目练习结果",
+        "retrieval": "不看资料回忆",
+        "understanding": "理解表达",
+        "application": "独立完成",
+        "transfer": "变换题目",
+        "retention": "间隔后保持",
+        "retrieval_gate": "不看资料完成回忆",
+        "application_gate": "独立完成类似练习",
+        "transfer_gate": "变换题目后完成练习",
+        "retention_gate": "间隔后再次完成练习",
+        "retrieval_gate": "不看资料想起来",
+        "application_gate": "自己完成类似练习",
+        "transfer_gate": "换个例子完成练习",
+        "retention_gate": "隔一段时间后仍然记得",
+        "met": "可以进入",
+        "not_ready": "还不能进入",
+        "not_required": "暂不要求",
+        "insufficient_data": "记录还不够",
+        "complete": "记录基本完整",
+        "partial": "有些记录不完整",
+        "measured": "有记录",
+        "no_sessions": "这段时间没有学习",
+        "warn": "需要留意",
+        "open": "等你处理",
+        "unknown": "暂时不知道",
+        "not_configured": "还没有设置",
+        "satisfied": "已经做到",
+        "missing": "还缺少",
+        "no_history": "还没有学习记录",
+        "none": "无",
+        "minutes": "分钟",
+        "period_reason": "统计这个时间段内的记录",
+        "unknown_data": "记录还不够，暂时无法判断",
+        "period_start": "总结范围",
+        "period_end": "周期结束",
+        "period": "周期",
+        "actual": "记录到的",
+        "planned": "计划的",
+        "rate": "占比",
+        "recent": "最近表现",
+        "previous": "之前表现",
+        "passing": "做对",
+        "trigger": "是否达到",
+        "concept": "学习内容",
+        "priority": "重要程度",
+        "normal": "正常安排",
+        "missing_evidence": "缺少证明",
+        "overdue_review_action": "先复习已经到期的内容，再开始新内容。",
+        "collect_evidence_action": "做一项不看提示的小练习，或换个例子再做一次。",
+        "stage_action": "先完成当前阶段最小的缺失证明。",
+        "continue_action": "继续下一个小练习，并保留下一次间隔复习。",
+        "start_here": "结论与计划",
+        "one_sentence": "一句话结论",
+        "your_situation": "当前情况",
+        "focus_now": "优先计划",
+        "why_this": "安排依据",
+        "proof": "预期结果",
+        "where_now": "学习目标与阶段进度",
+        "learning_progress": "学习进度",
+        "data_note": "数据说明",
+        "ability_changes": "能力证据",
+        "next_steps": "复习与后续计划",
+        "review_list": "复习安排",
+        "item": "项目",
+        "now": "当前情况",
+        "what_means": "判断依据",
+        "recorded_times": "记录数量",
+        "recent_performance": "最近表现",
+        "change_simple": "变化",
+        "goal_position": "最终目标",
+        "time_spent": "花费时间",
+        "study_sessions": "学习次数",
+        "checks_done": "练习或检查",
+        "reviews_done": "复习次数",
+        "next_action": "下一项计划",
+        "overdue": "已经到期",
+        "not_due": "今天到期",
+        "high": "高优先级",
+        "reminder": "需要留意",
+        "recommendation": "建议",
+        "no_due_reviews": "目前没有到期复习",
+        "no_risks": "目前没有发现需要特别留意的地方",
+        "custom_labels_title": "自定义文字",
+        "period_range": "总结范围",
+        "to": "至",
+        "meaning_label": "判断说明",
+        "data_note_label": "统计说明",
+        "time_meaning": "时间只能说明投入过，不能单独证明已经学会。",
+        "sessions_meaning": "次数可以看出是否持续学习。",
+        "days_meaning": "分开几天学习，更有助于记住。",
+        "checks_meaning": "练习和检查用来判断能不能自己做出来。",
+        "reviews_meaning": "隔一段时间再做，才能确认是否记住。",
+        "overall_stage_note": "按阶段要求判断，不按学习时间判断",
+        "goal_note": "需要成果证明，不只是看过课程",
+        "evidence_intro": "各项能力分别列出当前表现及其记录依据。",
+        "ability_changes_note": "当前情况和记录数量是主要依据，百分比仅作补充。",
+        "how_to_read": "能力判断说明",
+        "evidence_explanation": "稳定掌握需要多次不同形式的记录确认，例如不看资料、变换题目和间隔复习。",
+        "review_meaning": "间隔后再次完成，用于确认是否记住。",
+        "risk_note": "这是对下一步的提醒，不是对人的评价。",
+        "no_due_reviews_note": "继续完成当前阶段的小练习。",
+        "overdue_note": "先完成这项，再开始新内容。",
+        "normal_note": "按计划完成即可。",
+        "stage_not_ready_short": "还需要更多练习证明",
+        "stage_ready_short": "可以准备下一阶段",
+        "risk_data_quality": "有些学习记录不完整，部分数字只能作为参考。",
+        "risk_stage_gate": "当前阶段还缺少进入下一阶段的证明。",
+        "risk_review_backlog": "有内容到了应该复习的时间。",
+        "risk_fragile_progress": "最近会做，但还缺少换题或隔天复习来确认。",
+        "risk_stalled_progress": "最近几次记录没有明显变化，可以换一个更小的练习。",
+        "risk_delayed_decay": "之前会做，但隔一段时间后又忘了，需要缩短复习间隔。",
+        "risk_overlong_session": "有一次学习时间明显偏长，下一次可以拆成小段。",
+        "risk_overload_risk": "投入时间和学习表现同时出现需要留意的信号。",
+        "records_good": "现有记录可以支持这次总结。",
+        "not_enough_records": "记录还不够，暂时无法得出可靠结论。",
+        "no_records_headline": "目前还没有足够的学习证明，先完成一项会留下结果的小练习。",
+        "template_headline": "这里会先告诉你最重要的一句话结论。",
+        "template_situation": "这里会解释你目前已经做到什么，还缺哪一步。",
+        "template_focus": "这里会放下一次最值得做的一件事。",
+        "template_why": "这里会填写该计划的安排依据。",
+        "template_proof": "这里会告诉你做完后需要留下什么结果。",
+        "template_data_note": "模板里的文字只是示例；生成真实总结后会替换成你的学习记录。",
+        "template_action": "完成一次小练习，并把结果保存下来。",
+        "subject_placeholder": "你的学习主题",
+        "goal_placeholder": "你的可执行学习目标",
+        "stage_placeholder": "当前阶段",
+        "stage_not_configured": "还没有设置阶段要求",
+        "gate_satisfied": "已经有足够记录",
+        "gate_insufficient": "还没有这类记录",
+        "gate_still_needed": "但还不够",
+        "gate_missing": "还需要记录",
+        "missing_topics": "重点",
+        "no_repeated_failures_meaning": "复习时不要连续失败",
+        "delayed_rate_meaning": "这个比例越可靠，说明隔几天后仍能做对的记录越多。",
+        "review_rate_missing": "还没有足够的间隔复习记录",
+        "transfer_rate_meaning": "换例子可以确认你是在理解，而不是只记住原题。",
+        "transfer_rate_missing": "还没有换例子练习记录",
+        "risk_detail_default": "这项内容需要在下一次练习中继续确认",
+    },
+}
+
+
+def _presentation_labels(language: str) -> Dict[str, str]:
+    labels = dict(LABELS[language])
+    labels.update(FRIENDLY_LABELS[language])
+    if language == "zh":
+        labels.update({
+            "understanding_meaning": "根据自己的理解进行说明",
+            "retrieval_meaning": "不看资料完成回忆",
+            "application_meaning": "独立完成类似练习",
+            "transfer_meaning": "变换题目后继续完成",
+            "retention_meaning": "间隔后再次完成练习",
+            "continue_reason": "保持下一次练习小而明确，才能继续留下新的证明。",
+            "continue_proof": "把练习结果或解释交回来，作为下一次检查的依据。",
+            "building": "正在变好",
+            "consolidating": "正在巩固",
+            "fragile": "会做，但还不够稳定",
+            "stalled": "最近没有明显变化",
+            "recovering": "正在找回状态",
+        })
+    else:
+        labels.update({
+            "understanding_meaning": "Explain the idea in your own words",
+            "retrieval_meaning": "Recall the idea without looking",
+            "application_meaning": "Complete a similar task independently",
+            "transfer_meaning": "Complete a changed task",
+            "retention_meaning": "Complete the task again after a delay",
+            "continue_reason": "Keep the next practice small and observable so it creates new proof.",
+            "continue_proof": "Return the practice result or explanation for the next check.",
+            "building": "building",
+            "consolidating": "consolidating",
+            "fragile": "works, but not stable yet",
+            "stalled": "no clear recent change",
+            "recovering": "recovering",
+        })
+    if language == "zh":
+        # Keep the visible report conversational. Internal keys and scores
+        # remain unchanged; these are only the words shown to a learner.
+        labels.update({
+            "overview": "先看结论",
+            "progress": "学习进度",
+            "stage_gates": "走下一步前还要会什么",
+            "evidence": "你现在会什么",
+            "efficiency": "投入和记忆情况",
+            "period_learning": "这段时间做了什么",
+            "stage_progress": "学习路线走到哪",
+            "overall_progress": "总路线进度",
+            "goal_evidence": "大目标完成情况",
+            "assessments": "练习次数",
+            "review_attempts": "隔段复习次数",
+            "required_stages": "个学习步骤",
+            "current_stage": "现在正在学",
+            "actual_planned": "实际花费 / 原计划",
+            "delayed_pass_rate": "隔一段时间还记得",
+            "retrieval": "想起来",
+            "understanding": "讲明白",
+            "application": "自己做",
+            "transfer": "换例子",
+            "retention": "隔天记住",
+            "retrieval_gate": "不看资料回忆",
+            "application_gate": "自己完成练习",
+            "transfer_gate": "换个例子练习",
+            "retention_gate": "隔一段时间再做",
+            "met": "可以进入下一步",
+            "not_ready": "还不能进入下一步",
+            "complete": "记录够用",
+            "building": "开始会了",
+            "consolidating": "还在记牢",
+            "fragile": "会做，但还不稳定",
+            "stalled": "最近没变化",
+            "recovering": "正在找回来",
+            "start_here": "结论与计划",
+            "focus_now": "优先计划",
+            "proof": "预期结果",
+            "where_now": "学习目标与阶段进度",
+            "data_note": "记录是否够用",
+            "ability_changes": "能力证据",
+            "review_list": "该复习的内容",
+            "item": "项目",
+            "now": "当前情况",
+            "what_means": "判断依据",
+            "recorded_times": "记录数量",
+            "recent_performance": "最近表现",
+            "change_simple": "和之前相比",
+            "goal_position": "离大目标还有多远",
+            "time_spent": "花了多少时间",
+            "checks_done": "做了几次练习",
+            "reviews_done": "隔段复习了几次",
+            "next_action": "下一步",
+            "not_due": "今日到期",
+            "high": "高优先级",
+            "meaning_label": "判断说明",
+            "data_note_label": "统计说明",
+            "time_meaning": "时间只能说明投入，不代表已经会了。",
+            "sessions_meaning": "次数可以看出有没有持续练习。",
+            "days_meaning": "分开几天学习，更有助于记住。",
+            "checks_meaning": "练习用来判断能不能自己做出来。",
+            "reviews_meaning": "隔一段时间再做，才能确认是否记住。",
+            "overall_stage_note": "按会不会做来判断，不按花了多少时间",
+            "goal_note": "要看得见的结果，不能只看过",
+            "evidence_intro": "各项能力分别列出当前表现及其记录依据。",
+            "ability_changes_note": "当前情况和记录数量是主要依据，百分比仅作补充。",
+            "evidence_explanation": "稳定掌握需要多次不同形式的记录确认，例如不看资料、变换题目和间隔复习。",
+            "review_meaning": "间隔后再次完成，用于确认是否记住。",
+            "stage_not_ready_short": "还需要更多练习结果",
+            "stage_ready_short": "可以准备下一步",
+        })
+    labels.update(
+        {
+            "title": "StudyAny 学习情况报告",
+            "period_week": "周度学习报告",
+            "period_month": "月度学习报告",
+            "period_stage": "阶段进展报告",
+            "period_overall": "总体进展报告",
+            "overview": "结论与计划",
+            "progress": "学习进展",
+            "stage_gates": "阶段完成条件",
+            "evidence": "能力证据",
+            "efficiency": "学习投入与复习情况",
+            "period_learning": "本期学习记录",
+            "stage_progress": "阶段进度",
+            "overall_progress": "总体进度",
+            "goal_evidence": "学习目标完成情况",
+            "actual_planned": "实际时间与计划时间",
+            "delayed_pass_rate": "间隔复习结果",
+            "transfer_rate": "变换题目练习结果",
+            "retrieval": "不看资料回忆",
+            "understanding": "理解表达",
+            "application": "独立完成",
+            "transfer": "变换题目",
+            "retention": "间隔后保持",
+            "retrieval_gate": "不看资料完成回忆",
+            "application_gate": "独立完成类似练习",
+            "transfer_gate": "变换题目后完成练习",
+            "retention_gate": "间隔后再次完成练习",
+            "start_here": "结论与计划",
+            "one_sentence": "核心结论",
+            "your_situation": "当前情况",
+            "focus_now": "优先计划",
+            "why_this": "安排依据",
+            "proof": "预期结果",
+            "where_now": "学习目标与阶段进度",
+            "data_note": "数据说明",
+            "data_note_label": "统计说明",
+            "ability_changes": "能力证据",
+            "evidence_intro": "各项能力分别列出当前表现及其记录依据。",
+            "ability_changes_note": "当前情况和记录数量是主要依据，百分比仅作补充。",
+            "how_to_read": "能力判断说明",
+            "evidence_explanation": "稳定掌握需要多次不同形式的记录确认，例如不看资料、变换题目和间隔复习。",
+            "next_steps": "复习与后续计划",
+            "review_list": "复习安排",
+            "item": "项目",
+            "now": "当前情况",
+            "what_means": "判断依据",
+            "recorded_times": "记录数量",
+            "recent_performance": "近期结果",
+            "change_simple": "变化情况",
+            "time_spent": "实际学习时间",
+            "planned_time": "计划学习时间",
+            "planned_time_note": "用于比较计划与实际执行情况",
+            "study_sessions": "学习次数",
+            "checks_done": "练习记录",
+            "reviews_done": "复习记录",
+            "goal_position": "学习目标",
+            "goal_note": "需要可检查的成果记录",
+            "overall_stage_note": "依据阶段完成条件判断",
+            "time_meaning": "用于查看计划执行情况，不能单独判断是否掌握。",
+            "sessions_meaning": "用于查看学习安排是否连续。",
+            "days_meaning": "用于查看学习是否分布在不同日期。",
+            "checks_meaning": "用于查看是否能独立完成目标任务。",
+            "reviews_meaning": "用于查看一段时间后是否仍能完成。",
+            "meaning_label": "判断说明",
+            "reminder": "关注事项",
+            "recommendation": "计划建议",
+            "no_due_reviews": "当前无待复习内容",
+            "no_risks": "当前无其他重点事项",
+            "learning_state": "学习状态记录（辅助）",
+            "energy": "精力状态",
+            "distraction": "专注情况",
+            "record_count": "记录数量",
+            "latest_record": "最近一次明确填写",
+            "state_recorded": "已记录",
+            "state_not_recorded": "暂无明确记录",
+            "state_explicit_note": "仅展示用户明确填写的内容，不根据成绩、次数或文字语气推断",
+            "state_latest_note": "显示最近一次明确填写的内容",
+            "overdue": "已到期",
+            "not_due": "今日到期",
+            "high": "高优先级",
+            "normal": "常规安排",
+            "unknown": "暂无数据",
+            "not_configured": "尚未设置",
+            "no_sessions": "本期无学习记录",
+            "unknown_data": "记录不足，暂时无法判断",
+        }
+        if language == "zh"
+        else {
+            "title": "StudyAny Learning Progress Report",
+            "period_week": "Weekly Learning Report",
+            "period_month": "Monthly Learning Report",
+            "period_stage": "Stage Progress Report",
+            "period_overall": "Overall Progress Report",
+            "overview": "Conclusion and plan",
+            "progress": "Learning progress",
+            "stage_gates": "Stage completion conditions",
+            "evidence": "Ability evidence",
+            "efficiency": "Study investment and retention",
+            "period_learning": "Learning records in this period",
+            "stage_progress": "Stage progress",
+            "overall_progress": "Overall progress",
+            "goal_evidence": "Progress toward the learning goal",
+            "actual_planned": "Recorded time and planned time",
+            "delayed_pass_rate": "Delayed review result",
+            "transfer_rate": "Result with a changed task",
+            "retrieval": "Recall",
+            "understanding": "Explanation",
+            "application": "Independent application",
+            "transfer": "Application with a changed task",
+            "retention": "Delayed review retention",
+            "retrieval_gate": "Recall without looking",
+            "application_gate": "Complete a similar task independently",
+            "transfer_gate": "Complete a changed task",
+            "retention_gate": "Complete the task again after a delay",
+            "start_here": "Conclusion and plan",
+            "one_sentence": "Main conclusion",
+            "your_situation": "Current situation",
+            "focus_now": "Priority plan",
+            "why_this": "Basis for the plan",
+            "proof": "Expected result",
+            "where_now": "Learning goal and stage progress",
+            "data_note": "Data notes",
+            "data_note_label": "Statistical notes",
+            "ability_changes": "Ability evidence",
+            "evidence_intro": "Review ability by task type; more records make the judgment stronger.",
+            "ability_changes_note": "Read the current situation and record count first; percentages are supporting detail.",
+            "how_to_read": "Ability evidence notes",
+            "evidence_explanation": "Stable ability needs more than one kind of record, such as recall without looking, changed tasks, or delayed review.",
+            "next_steps": "Reviews and next plan",
+            "review_list": "Review plan",
+            "item": "Item",
+            "now": "Current situation",
+            "what_means": "Basis for the judgment",
+            "recorded_times": "Recorded entries",
+            "recent_performance": "Recent results",
+            "change_simple": "Change",
+            "time_spent": "Recorded study time",
+            "planned_time": "Planned study time",
+            "planned_time_note": "Compare recorded time with planned time",
+            "study_sessions": "Study sessions",
+            "checks_done": "Practice records",
+            "reviews_done": "Review records",
+            "goal_position": "Learning goal",
+            "goal_note": "A checkable result is needed",
+            "overall_stage_note": "Based on stage completion conditions",
+            "time_meaning": "Used to observe plan execution; it does not by itself show mastery.",
+            "sessions_meaning": "Used to observe continuity of the study plan.",
+            "days_meaning": "Used to observe whether the plan is spread across dates.",
+            "checks_meaning": "Used to check whether the goal task can be completed.",
+            "reviews_meaning": "Used to observe whether the task can still be completed after time passes.",
+            "meaning_label": "Evidence note",
+            "reminder": "Items to monitor",
+            "recommendation": "Plan recommendation",
+            "no_due_reviews": "No review is currently due",
+            "no_risks": "No other priority items",
+            "learning_state": "Recorded learning conditions (secondary)",
+            "energy": "Energy",
+            "distraction": "Distraction",
+            "record_count": "Recorded entries",
+            "latest_record": "Latest explicit entry",
+            "state_recorded": "Recorded",
+            "state_not_recorded": "No explicit entry",
+            "state_explicit_note": "Shows only what the learner explicitly recorded; it does not infer a state from scores, frequency, or wording.",
+            "state_latest_note": "The latest explicitly recorded value",
+        }
+    )
+    return labels
 
 
 class SummaryError(Exception):
@@ -559,18 +1209,17 @@ def _time_metrics(
     stage_assessment_ids: Optional[set] = None,
 ) -> Dict[str, Any]:
     included = 0
+    excluded_session_count = 0
+    excluded_session_ids: List[str] = []
     unknown_duration = 0
     unknown_timestamp = 0
     actual = 0.0
     planned = 0.0
-    active = 0.0
-    passive = 0.0
     measured_count = 0
     planned_count = 0
-    active_count = 0
-    passive_count = 0
     study_dates = set()
-    for row in sessions:
+    state_entries: Dict[str, List[Dict[str, Any]]] = {"energy": [], "distraction": []}
+    for source_index, row in enumerate(sessions):
         if row.get("status") not in ("complete", "interrupted"):
             continue
         if stage_id is not None and not _session_matches_stage(row, stage_id, stage_concept_ids or set(), stage_assessment_ids or set()):
@@ -582,9 +1231,21 @@ def _time_metrics(
             continue
         if not _in_scope(observed, start, end):
             continue
+        duration = _number(row.get("duration_min"), minimum=0)
+        if row.get("status") == "interrupted" and duration is not None and duration > MAX_RELIABLE_INTERRUPTED_MINUTES:
+            excluded_session_count += 1
+            if row.get("session_id"):
+                excluded_session_ids.append(str(row.get("session_id")))
+            reasons.append("interrupted_duration_unreliable")
+            continue
         included += 1
         study_dates.add(observed)
-        duration = _number(row.get("duration_min"), minimum=0)
+        for field in state_entries:
+            value = row.get(field)
+            if value is not None and value != "":
+                state_entries[field].append(
+                    {"value": value, "date": observed.isoformat(), "source_index": source_index}
+                )
         if duration is None:
             unknown_duration += 1
         else:
@@ -594,19 +1255,11 @@ def _time_metrics(
         if planned_value is not None:
             planned += planned_value
             planned_count += 1
-        active_value = _number(row.get("active_minutes"), minimum=0)
-        if active_value is not None:
-            active += active_value
-            active_count += 1
-        passive_value = _number(row.get("passive_minutes"), minimum=0)
-        if passive_value is not None:
-            passive += passive_value
-            passive_count += 1
     if unknown_duration:
         reasons.append("unknown_duration")
     if unknown_timestamp:
         reasons.append("unknown_session_timestamp")
-    if measured_count:
+    if measured_count and not unknown_duration and not unknown_timestamp:
         measurement_status = "measured"
         actual_value: Optional[float] = _round(actual, 1)
     elif included or unknown_timestamp:
@@ -615,8 +1268,19 @@ def _time_metrics(
     else:
         measurement_status = "no_sessions"
         actual_value = 0.0
+    learning_state: Dict[str, Dict[str, Any]] = {}
+    for field, entries in state_entries.items():
+        ordered = sorted(entries, key=lambda item: (item.get("date") or "", item.get("source_index", 0)))
+        latest = ordered[-1] if ordered else None
+        learning_state[field] = {
+            "recorded_count": len(ordered),
+            "latest": latest.get("value") if latest else None,
+            "latest_date": latest.get("date") if latest else None,
+        }
     return {
         "session_count": included,
+        "excluded_session_count": excluded_session_count,
+        "excluded_session_ids": excluded_session_ids,
         "measured_session_count": measured_count,
         "unknown_duration_count": unknown_duration,
         "unknown_timestamp_count": unknown_timestamp,
@@ -626,8 +1290,7 @@ def _time_metrics(
         "actual_minutes": actual_value,
         "planned_minutes": _round(planned, 1) if planned_count else None,
         "planned_session_count": planned_count,
-        "active_minutes": _round(active, 1) if active_count else None,
-        "passive_minutes": _round(passive, 1) if passive_count else None,
+        "learning_state": learning_state,
     }
 
 
@@ -925,6 +1588,11 @@ def _evaluate_stage(
         "title": stage.get("title"),
         "status": stage.get("status"),
         "concept_ids": sorted(concept_ids),
+        "concept_titles": {
+            str(row.get("concept_id")): row.get("title")
+            for row in concepts
+            if isinstance(row, dict) and row.get("concept_id") in concept_ids and row.get("title")
+        },
         "exit_criteria": stage.get("exit_criteria") if isinstance(stage.get("exit_criteria"), list) else [],
         "gates": gates,
         "eligible": eligible,
@@ -1098,10 +1766,14 @@ def _progress(
     return {
         "period": {
             "session_count": period_time.get("session_count", 0),
+            "excluded_session_count": period_time.get("excluded_session_count", 0),
             "actual_minutes": period_time.get("actual_minutes"),
+            "planned_minutes": period_time.get("planned_minutes"),
+            "planned_session_count": period_time.get("planned_session_count", 0),
             "study_days": period_time.get("study_days", 0),
             "assessment_sample_count": len(assessment_samples),
             "review_attempt_count": len(review_samples),
+            "learning_state": period_time.get("learning_state") or {},
         },
         "stage": {
             "current_stage_id": current.get("id"),
@@ -1125,8 +1797,6 @@ def _progress(
 def _efficiency(time_data: Dict[str, Any], review_data: Dict[str, Any], evidence: Dict[str, Any]) -> Dict[str, Any]:
     actual = _number(time_data.get("actual_minutes"), minimum=0)
     planned = _number(time_data.get("planned_minutes"), minimum=0)
-    active = _number(time_data.get("active_minutes"), minimum=0)
-    passive = _number(time_data.get("passive_minutes"), minimum=0)
     if actual is not None and planned is not None and planned > 0:
         actual_planned = {
             "status": "measured",
@@ -1141,23 +1811,8 @@ def _efficiency(time_data: Dict[str, Any], review_data: Dict[str, Any], evidence
             "planned_minutes": _round(planned, 1) if planned is not None else None,
             "ratio": None,
         }
-    if active is not None and passive is not None and active + passive > 0:
-        active_share = {
-            "status": "measured",
-            "active_minutes": _round(active, 1),
-            "passive_minutes": _round(passive, 1),
-            "ratio": _round(active / (active + passive)),
-        }
-    else:
-        active_share = {
-            "status": "insufficient_data",
-            "active_minutes": _round(active, 1) if active is not None else None,
-            "passive_minutes": _round(passive, 1) if passive is not None else None,
-            "ratio": None,
-        }
     return {
         "actual_vs_planned": actual_planned,
-        "active_time_share": active_share,
         "delayed_review": {
             "status": "measured" if review_data.get("delayed_attempt_count") else "insufficient_data",
             "attempt_count": review_data.get("delayed_attempt_count", 0),
@@ -1189,6 +1844,7 @@ def _data_quality(reasons: Sequence[str], rows: Sequence[Sequence[Dict[str, Any]
         or "_invalid" in reason
         or "_unreadable" in reason
         or reason.startswith("invalid_")
+        or reason == "interrupted_duration_unreliable"
         for reason in unique_reasons
     )
     if event_count == 0:
@@ -1262,7 +1918,7 @@ def _risk_and_actions(snapshot: Dict[str, Any], language: str) -> Tuple[List[Dic
         actions.append(
             {
                 "priority": "high",
-                "action": _label(language, "overdue_review_action"),
+                "action": _presentation_label(language, "overdue_review_action", "Review overdue material before adding new content."),
                 "evidence": reviews.get("oldest_overdue"),
             }
         )
@@ -1279,7 +1935,7 @@ def _risk_and_actions(snapshot: Dict[str, Any], language: str) -> Tuple[List[Dic
         actions.append(
             {
                 "priority": "high",
-                "action": _label(language, "stage_action"),
+                "action": _presentation_label(language, "stage_action", "Complete the smallest missing stage evidence."),
                 "evidence": current.get("id"),
             }
         )
@@ -1289,7 +1945,7 @@ def _risk_and_actions(snapshot: Dict[str, Any], language: str) -> Tuple[List[Dic
             actions.append(
                 {
                     "priority": "normal",
-                    "action": _label(language, "collect_evidence_action"),
+                    "action": _presentation_label(language, "collect_evidence_action", "Collect one more evidence item."),
                     "evidence": ", ".join(
                         dimension for dimension, value in evidence.items() if value.get("status") in ("fragile", "stalled", "insufficient_data")
                     ),
@@ -1299,11 +1955,225 @@ def _risk_and_actions(snapshot: Dict[str, Any], language: str) -> Tuple[List[Dic
             actions.append(
                 {
                     "priority": "normal",
-                    "action": _label(language, "continue_action"),
+                    "action": _presentation_label(language, "continue_action", "Continue with the next small task."),
                     "evidence": snapshot.get("progress", {}).get("stage", {}).get("current_stage_id"),
                 }
             )
     return risks, actions
+
+
+def _presentation_label(language: str, key: str, default: str) -> str:
+    return FRIENDLY_LABELS.get(language, {}).get(key) or LABELS.get(language, {}).get(key) or default
+
+
+def _current_stage_row(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    projection = snapshot.get("stage_projection") or {}
+    current = projection.get("current_stage") or {}
+    current_id = current.get("id")
+    for row in projection.get("stages") or []:
+        if isinstance(row, dict) and row.get("stage_id") == current_id:
+            return row
+    return {}
+
+
+def _missing_evidence_text(snapshot: Dict[str, Any], language: str) -> str:
+    stage = _current_stage_row(snapshot)
+    missing_kind = stage.get("first_missing")
+    labels = _presentation_labels(language)
+    defaults = {
+        "retrieval": "先做一次不看资料的回忆",
+        "application": "先做一次自己完成的类似练习",
+        "transfer": "先做一次换例子或换场景的练习",
+        "retention": "先做一次隔一段时间后的复习",
+        "no_repeated_failures": "先完成一次没有连续失败的复习",
+    }
+    if not missing_kind:
+        return _presentation_label(language, "collect_evidence_action", "Collect one more evidence item.")
+    gate = next((item for item in stage.get("gates") or [] if item.get("kind") == missing_kind), {})
+    if gate.get("status") == "insufficient_data":
+        base = {
+            "retrieval": "还没有不看资料回忆的记录",
+            "application": "还没有自己完成练习的记录",
+            "transfer": "还没有换例子练习的记录",
+            "retention": "还没有隔一段时间复习的记录",
+            "no_repeated_failures": "还没有足够的复习记录",
+        }.get(missing_kind, defaults.get(missing_kind, "还没有这类练习的记录"))
+    else:
+        base = defaults.get(missing_kind, "还缺少一项练习证明")
+    titles = [
+        (stage.get("concept_titles") or {}).get(concept_id)
+        for concept_id in gate.get("missing_concepts") or []
+        if (stage.get("concept_titles") or {}).get(concept_id)
+    ]
+    if titles:
+        return "%s（重点：%s）" % (base, "、".join(str(title) for title in titles[:3]))
+    return base
+
+
+def _friendly_data_note(snapshot: Dict[str, Any], language: str) -> str:
+    quality = snapshot.get("data_quality") or {}
+    reasons = quality.get("reasons") or []
+    period = (snapshot.get("progress") or {}).get("period") or {}
+    excluded_count = period.get("excluded_session_count", 0) or 0
+    reason_text = {
+        "unknown_duration": "有些学习记录没有完整时间，所以总时间只能参考",
+        "unknown_session_timestamp": "有些学习记录没有有效日期，所以时间段统计只能参考",
+        "no_study_records": "目前还没有学习记录",
+        "invalid_timezone": "时区设置有问题，时间段可能需要重新确认",
+        "timezone_unavailable": "当前环境无法识别时区，时间段可能需要重新确认",
+    }
+    if language != "zh":
+        reason_text = {
+            "unknown_duration": "Some study records have no complete duration, so total time is only a reference",
+            "unknown_session_timestamp": "Some study records have no valid date, so period totals are only a reference",
+            "no_study_records": "No study records are available",
+            "invalid_timezone": "The timezone setting is invalid, so the period may need review",
+            "timezone_unavailable": "The timezone is unavailable, so the period may need review",
+        }
+    fallback = "部分记录格式不完整" if language == "zh" else "Some records are incomplete"
+    readable = [reason_text.get(reason, fallback) for reason in reasons if reason != "interrupted_duration_unreliable"]
+    if excluded_count:
+        count_text = "一" if excluded_count == 1 else str(excluded_count)
+        excluded_text = (
+            "有%s条明显中断的记录未计入学习次数、学习天数、计划时间或实际学习时间，仅保留为数据说明"
+            % count_text
+            if language == "zh"
+            else "%s clearly interrupted record(s) were excluded from session count, study days, planned time, and actual time; they are kept only as a data note"
+            % excluded_count
+        )
+        readable.insert(0, excluded_text)
+    if readable:
+        return ("；".join(dict.fromkeys(readable)) + "。") if language == "zh" else ("; ".join(dict.fromkeys(readable)) + ".")
+    if quality.get("status") == "complete":
+        return _presentation_label(language, "records_good", "The available records are usable for this summary.")
+    if quality.get("status") == "partial":
+        return _presentation_label(language, "partial", "Some records are incomplete") + "。"
+    return _presentation_label(language, "not_enough_records", "More records are needed before a useful conclusion can be made.")
+
+
+def _learner_view(snapshot: Dict[str, Any], language: str) -> Dict[str, str]:
+    """Turn the structured snapshot into a short, decision-oriented explanation."""
+    labels = _presentation_labels(language)
+    progress = snapshot.get("progress") or {}
+    period = progress.get("period") or {}
+    stage = progress.get("stage") or {}
+    overall = progress.get("overall") or {}
+    goal_evidence = snapshot.get("goal_evidence") or {}
+    reviews = snapshot.get("reviews") or {}
+    evidence = snapshot.get("evidence") or {}
+    stage_row = _current_stage_row(snapshot)
+    stage_title = stage.get("current_stage_title") or "当前正在学的部分"
+    missing_text = _missing_evidence_text(snapshot, language)
+    has_records = bool(
+        period.get("session_count")
+        or period.get("assessment_sample_count")
+        or period.get("review_attempt_count")
+    )
+    goal_status = goal_evidence.get("status")
+    if not has_records:
+        headline = _presentation_label(language, "no_records_headline", "There is not enough learning evidence yet.")
+    elif stage_title and not stage.get("current_stage_eligible") and stage_row:
+        headline = "你已经在“%s”做过不少练习，但还不能进入下一部分。最关键的是：%s。" % (stage_title, missing_text) if language == "zh" else "You have practiced %s, but you are not ready to move on yet. The most important missing proof is: %s." % (stage_title, missing_text)
+    elif stage.get("current_stage_eligible"):
+        headline = "当前阶段的进入条件已经达到，可以准备下一阶段。" if language == "zh" else "The current stage has enough proof; you can prepare for the next stage."
+    elif goal_status == "satisfied":
+        headline = "目前已有成果证明最终目标，可以进入保持和应用阶段。" if language == "zh" else "There is enough result evidence for the final goal; keep applying and retaining it."
+    else:
+        headline = "你已经开始积累学习记录，下一步要把记录变成可检查的成果。" if language == "zh" else "You have started building records; the next step is to turn them into checkable results."
+
+    weak_names: List[str] = []
+    improving_names: List[str] = []
+    for dimension in DIMENSIONS:
+        value = evidence.get(dimension) or {}
+        status = value.get("status")
+        if status in ("fragile", "stalled", "insufficient_data"):
+            weak_names.append(labels.get(dimension) or dimension)
+        elif status in ("building", "recovering"):
+            improving_names.append(labels.get(dimension) or dimension)
+    activity = "%s 次练习，%s 次复习" % (period.get("assessment_sample_count", 0), period.get("review_attempt_count", 0)) if language == "zh" else "%s practice checks and %s reviews" % (period.get("assessment_sample_count", 0), period.get("review_attempt_count", 0))
+    if weak_names:
+        situation = "%s。已经有练习和复习记录，但还需要继续确认：%s。" % (activity, "、".join(weak_names[:3])) if language == "zh" else "%s. Practice and review records exist, but these areas still need checking: %s." % (activity, ", ".join(weak_names[:3]))
+    elif improving_names:
+        situation = "%s。最近有变化的是：%s。" % (activity, "、".join(improving_names[:3])) if language == "zh" else "%s. Recent improvement is visible in %s." % (activity, ", ".join(improving_names[:3]))
+    elif has_records:
+        situation = "%s。当前记录还不足以说明已经稳定掌握。" % activity if language == "zh" else "%s. The current records do not yet show stable mastery."
+    else:
+        situation = _presentation_label(language, "not_enough_records", "More records are needed before a useful conclusion can be made.")
+
+    due_items = reviews.get("due_items") or []
+    if due_items:
+        first_title = due_items[0].get("title") or due_items[0].get("concept_id") or "这项内容"
+        focus = "先复习“%s”，再开始新内容。" % first_title if language == "zh" else "Review %s before starting something new." % first_title
+        why = "隔一段时间再做，才能确认这项内容是真的记住了。" if language == "zh" else "A delayed review checks whether the idea stayed with you."
+        proof = "完成后留下复习结果；如果做错，记录错在哪里。" if language == "zh" else "Save the review result and note what went wrong if it fails."
+    elif stage_row and not stage.get("current_stage_eligible"):
+        missing_kind = stage_row.get("first_missing")
+        actions = {
+            "retrieval": "做一次不看资料的回忆，并保存答案。",
+            "application": "自己完成一道类似练习，并保存结果。",
+            "transfer": "换一个例子再做一次，并保存结果。",
+            "retention": "隔一段时间再做一次复习，并记录结果。",
+            "no_repeated_failures": "完成一次复习，并记录这次结果。",
+        }
+        english_actions = {
+            "retrieval": "Do one recall task without looking and save the answer.",
+            "application": "Complete one similar task by yourself and save the result.",
+            "transfer": "Try one new example and save the result.",
+            "retention": "Do one review after a delay and record the result.",
+            "no_repeated_failures": "Complete one review and record the result.",
+        }
+        focus = actions.get(missing_kind, "补充一条能检查的练习结果。") if language == "zh" else english_actions.get(missing_kind, "Add one checkable practice result.")
+        why = "想进入下一部分，不能只看过内容，还要看到你能自己想起来、做出来，或换个例子继续做。" if language == "zh" else "Moving on needs more than exposure; you should be able to remember, do, or adapt the idea yourself."
+        proof = "把答案或练习结果保存下来，交给 StudyAny 检查。" if language == "zh" else "Save the answer or practice result and return it for checking."
+    elif goal_status != "satisfied":
+        focus = "完成一项能展示最终目标的成果，并留下可检查的结果。" if language == "zh" else "Complete one result that demonstrates the final goal and save it for checking."
+        why = "最终目标需要成果证明，学习时间和看过课程本身不能代替成果。" if language == "zh" else "The final goal needs a result; time and exposure do not replace one."
+        proof = "保存成果文件、运行结果或一段能说明你做法的解释。" if language == "zh" else "Save the artifact, runtime result, or explanation of your approach."
+    else:
+        actions = snapshot.get("next_actions") or []
+        focus = actions[0].get("action") if actions and isinstance(actions[0], dict) else _presentation_label(language, "continue_action", "Continue the next small task.")
+        why = _presentation_label(language, "continue_reason", "Keep the next evidence-bearing task small and observable.")
+        proof = _presentation_label(language, "continue_proof", "Return the result or explanation for the next check.")
+
+    required_count = overall.get("required_stage_count", 0)
+    completed_count = overall.get("completed_stage_count", 0)
+    projection = snapshot.get("stage_projection") or {}
+    stage_rows = [row for row in projection.get("stages") or [] if isinstance(row, dict)]
+    current_id = stage.get("current_stage_id") or (projection.get("current_stage") or {}).get("id")
+    required_rows = [row for row in stage_rows if row.get("status") != "optional"]
+    current_position = next(
+        (index + 1 for index, row in enumerate(required_rows) if row.get("stage_id") == current_id),
+        None,
+    )
+    if language == "zh":
+        stage_line = "这一部分还没达到进入下一部分的条件。" if not stage.get("current_stage_eligible") else "这一部分已经达到进入下一部分的条件。"
+        if current_position and required_count:
+            stage_progress = "现在是第 %s 个学习步骤，共 %s 个；当前这一步%s。" % (current_position, required_count, "还没完成" if not stage.get("current_stage_eligible") else "已经完成")
+        elif required_count:
+            stage_progress = "已经完成 %s 个学习步骤，共 %s 个。" % (completed_count, required_count)
+        else:
+            stage_progress = "还没有设置学习步骤。"
+        if goal_status == "satisfied":
+            goal_line = "已经有成果可以说明大目标做到了。"
+        elif goal_status == "not_configured":
+            goal_line = "还没有写清楚大目标要交出什么成果。"
+        else:
+            goal_line = "还没有做出足以说明大目标完成的成果。"
+    else:
+        stage_line = "The current stage is not ready for the next stage." if not stage.get("current_stage_eligible") else "The current stage is ready for the next stage."
+        stage_progress = "%s of %s required stages are complete." % (completed_count, required_count)
+        goal_line = "There is result evidence for the final goal." if goal_status == "satisfied" else "There is not enough result evidence for the final goal."
+    return {
+        "headline": headline,
+        "situation": situation,
+        "focus": focus,
+        "why": why,
+        "proof": proof,
+        "stage_line": stage_line,
+        "stage_progress": stage_progress,
+        "goal_line": goal_line,
+        "data_note": _friendly_data_note(snapshot, language),
+    }
 
 
 def _render(snapshot: Dict[str, Any], language: str) -> str:
@@ -1387,7 +2257,6 @@ def _render(snapshot: Dict[str, Any], language: str) -> str:
     lines.extend(["", "## %s" % _label(language, "efficiency")])
     efficiency = snapshot.get("efficiency") or {}
     actual_planned = efficiency.get("actual_vs_planned") or {}
-    active_share = efficiency.get("active_time_share") or {}
     delayed = efficiency.get("delayed_review") or {}
     transfer = efficiency.get("transfer") or {}
     lines.append(
@@ -1395,7 +2264,6 @@ def _render(snapshot: Dict[str, Any], language: str) -> str:
             [_label(language, "metric"), _label(language, "result"), _label(language, "samples"), _label(language, "note")],
             [
                 [_label(language, "actual_planned"), "%s / %s" % (_format_minutes(actual_planned.get("actual_minutes"), language), _format_minutes(actual_planned.get("planned_minutes"), language)), _label(language, actual_planned.get("status", "unknown")), "ratio=%s" % (actual_planned.get("ratio") if actual_planned.get("ratio") is not None else _label(language, "unknown"))],
-                [_label(language, "active_share"), _format_rate(active_share.get("ratio"), language), _label(language, active_share.get("status", "unknown")), "%s / %s" % (_format_minutes(active_share.get("active_minutes"), language), _format_minutes(active_share.get("passive_minutes"), language))],
                 [_label(language, "delayed_pass_rate"), _format_rate(delayed.get("pass_rate"), language), delayed.get("attempt_count", 0), "%s / %s" % (delayed.get("pass_count", 0), delayed.get("attempt_count", 0))],
                 [_label(language, "transfer_rate"), _format_rate(transfer.get("pass_rate"), language), transfer.get("attempt_count", 0), "%s / %s" % (transfer.get("pass_count", 0), transfer.get("attempt_count", 0))],
             ],
@@ -1460,6 +2328,89 @@ def _summary_key(kind: str, period_key: str, roadmap: Dict[str, Any], stage_id: 
     return "%s:%s" % (kind, period_key)
 
 
+def _default_summary_output_dir() -> Path:
+    """Put learner-facing reports in the process working directory."""
+    return Path.cwd() / "study-reports"
+
+
+def _resolve_template_path(template_path: Optional[Path]) -> Optional[Path]:
+    if template_path is None:
+        default = _default_summary_output_dir() / "studyany-summary-template.xlsx"
+        return default.resolve() if default.is_file() else None
+    path = Path(template_path).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    if not path.is_file():
+        raise SummaryError("template does not exist: %s" % path)
+    return path.resolve()
+
+
+def _template_details(language: str, template_path: Optional[Path]) -> Tuple[Dict[str, str], Optional[Path], Optional[str]]:
+    resolved = _resolve_template_path(template_path)
+    labels = _presentation_labels(language)
+    if resolved is None:
+        return labels, None, None
+    labels.update(read_template_labels(resolved))
+    digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
+    return labels, resolved, digest
+
+
+def _summary_workbook_path(
+    summary_key: str,
+    output_dir: Optional[Path] = None,
+) -> Path:
+    base = _default_summary_output_dir() if output_dir is None else Path(output_dir).expanduser()
+    if not base.is_absolute():
+        base = Path.cwd() / base
+    safe_key = re.sub(r"[^A-Za-z0-9._-]+", "-", summary_key).strip("-.") or "summary"
+    return (base.resolve() / ("studyany-%s.xlsx" % safe_key)).resolve()
+
+
+def _stored_workbook_path(record: Dict[str, Any]) -> Optional[Path]:
+    value = record.get("workbook_path")
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path.resolve()
+
+
+def _stored_template_path(record: Dict[str, Any]) -> Optional[Path]:
+    value = record.get("template_path")
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path.resolve()
+
+
+def _has_workbook(
+    record: Optional[Dict[str, Any]],
+    expected_path: Path,
+    expected_sheets: Optional[Sequence[str]] = None,
+    template_path: Optional[Path] = None,
+    template_hash: Optional[str] = None,
+) -> bool:
+    if (
+        not record
+        or record.get("workbook_format") != "xlsx"
+        or record.get("workbook_schema_version") != WORKBOOK_SCHEMA_VERSION
+        or not isinstance(record.get("workbook_sheets"), list)
+        or not record.get("workbook_sheets")
+    ):
+        return False
+    if expected_sheets is not None and record.get("workbook_sheets") != list(expected_sheets):
+        return False
+    stored = _stored_workbook_path(record)
+    if stored is None or stored != expected_path.resolve() or not stored.is_file():
+        return False
+    if template_path is None:
+        return not record.get("template_path") and not record.get("template_sha256")
+    return _stored_template_path(record) == template_path.resolve() and record.get("template_sha256") == template_hash
+
+
 def _existing_summary(path: Path, summary_key: str) -> Optional[Dict[str, Any]]:
     if not path.exists():
         return None
@@ -1467,6 +2418,7 @@ def _existing_summary(path: Path, summary_key: str) -> Optional[Dict[str, Any]]:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return None
+    found = None
     for line in lines:
         if not line.strip():
             continue
@@ -1475,17 +2427,36 @@ def _existing_summary(path: Path, summary_key: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             continue
         if isinstance(row, dict) and row.get("summary_key") == summary_key:
-            return row
-    return None
+            found = row
+    return found
 
 
 def _append_summary(path: Path, record: Dict[str, Any]) -> None:
+    """Append a new record or replace one legacy record during migration."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing = _existing_summary(path, record["summary_key"])
-    if existing is not None:
-        return
-    with path.open("a", encoding="utf-8", newline="\n") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    replacement = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
+    output: List[str] = []
+    replaced = False
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            output.append(line)
+            continue
+        if isinstance(row, dict) and row.get("summary_key") == record["summary_key"]:
+            if not replaced:
+                output.append(replacement)
+                replaced = True
+            continue
+        output.append(line)
+    if not replaced:
+        output.append(replacement)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text("\n".join(output) + "\n", encoding="utf-8")
+    temporary.replace(path)
 
 
 def _period_analytics(context: Dict[str, Any], kind: str, end: date) -> Dict[str, Any]:
@@ -1628,6 +2599,7 @@ def build_summary(
         "data_quality": quality,
         "progress": progress,
         "overall": progress["overall"],
+        "learning_state": progress["period"].get("learning_state") or {},
         "goal_evidence": goal_evidence,
         "stage_projection": stage_projection,
         "evidence": evidence,
@@ -1655,6 +2627,7 @@ def build_summary(
                 "evidence": selected_stage_projection.get("first_missing") if selected_stage_projection else None,
             }
         ]
+    snapshot["learner_view"] = _learner_view(snapshot, context["language"])
     return {
         "snapshot": snapshot,
         "language": context["language"],
@@ -1676,14 +2649,18 @@ def generate_summary(
     stage_id: Optional[str] = None,
     language: Optional[str] = None,
     persist: bool = True,
+    output_dir: Optional[Path] = None,
+    template_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     built = build_summary(study_root, kind, as_of_value, stage_id, language)
     snapshot = built["snapshot"]
     summary_path = Path(study_root) / "summaries.jsonl"
     existing = _existing_summary(summary_path, snapshot["summary_key"])
-    if existing is not None:
-        return {"summary_key": snapshot["summary_key"], "status": "already_exists", "persisted": False, "record": existing}
-    markdown = _render(snapshot, built["language"])
+    workbook_path = _summary_workbook_path(snapshot["summary_key"], output_dir)
+    labels, effective_template, template_hash = _template_details(built["language"], template_path)
+    expected_sheets = summary_sheet_names(built["language"])
+    if _has_workbook(existing, workbook_path, expected_sheets, effective_template, template_hash):
+        return {"summary_key": snapshot["summary_key"], "status": "already_exists", "persisted": False, "workbook_path": str(workbook_path), "record": existing}
     record = {
         "summary_id": "summary-%s" % snapshot["summary_key"].replace(":", "-").replace("/", "-"),
         "summary_key": snapshot["summary_key"],
@@ -1697,14 +2674,27 @@ def generate_summary(
         "goal": snapshot.get("goal"),
         "data_quality": snapshot.get("data_quality"),
         "snapshot": snapshot,
-        "markdown": markdown,
+        "workbook_path": str(workbook_path),
+        "workbook_format": "xlsx",
+        "workbook_schema_version": WORKBOOK_SCHEMA_VERSION,
     }
+    if effective_template is not None:
+        record["template_path"] = str(effective_template)
+        record["template_sha256"] = template_hash
     eligible = snapshot.get("trigger", {}).get("eligible", True)
     if kind == "stage" and not eligible:
         return {"summary_key": snapshot["summary_key"], "status": "not_ready", "persisted": False, "record": record}
     if persist:
+        sheet_names = write_summary_workbook(snapshot, labels, built["language"], workbook_path)
+        record["workbook_sheets"] = sheet_names
         _append_summary(summary_path, record)
-        return {"summary_key": snapshot["summary_key"], "status": "generated", "persisted": True, "record": record}
+        return {
+            "summary_key": snapshot["summary_key"],
+            "status": "upgraded" if existing is not None else "generated",
+            "persisted": True,
+            "workbook_path": str(workbook_path),
+            "record": record,
+        }
     return {"summary_key": snapshot["summary_key"], "status": "preview", "persisted": False, "record": record}
 
 
@@ -1712,24 +2702,31 @@ def check_due(
     study_root: Path,
     as_of_value: Optional[Any] = None,
     language: Optional[str] = None,
+    output_dir: Optional[Path] = None,
+    template_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     context = _context(Path(study_root), as_of_value, language)
     as_of_date = context["as_of"]
     summary_path = Path(study_root) / "summaries.jsonl"
+    _, effective_template, template_hash = _template_details(context["language"], template_path)
+    expected_sheets = summary_sheet_names(context["language"])
     history_exists = bool(context["sessions"] or context["assessments"] or context["reviews"])
     candidates: List[Dict[str, Any]] = []
     for kind in ("week", "month"):
         start, end, period_key = _period(as_of_date, kind)
         key = _summary_key(kind, period_key, context["roadmap"], None)
         existing = _existing_summary(summary_path, key)
+        workbook_path = _summary_workbook_path(key, output_dir)
+        workbook_exists = _has_workbook(existing, workbook_path, expected_sheets, effective_template, template_hash)
         candidates.append(
             {
                 "kind": kind,
                 "summary_key": key,
                 "period": {"start": start.isoformat() if start else None, "end": end.isoformat()},
                 "eligible": history_exists,
-                "due": history_exists and existing is None,
-                "status": "already_exists" if existing else "due" if history_exists else "no_history",
+                "due": history_exists and not workbook_exists,
+                "status": "already_exists" if workbook_exists else "due" if history_exists else "no_history",
+                "workbook_path": str(workbook_path),
             }
         )
     roadmap = context["roadmap"]
@@ -1742,6 +2739,8 @@ def check_due(
         built = build_summary(Path(study_root), "stage", as_of_date, stage_id, language)
         eligible = bool(built["snapshot"].get("trigger", {}).get("eligible"))
         existing = _existing_summary(summary_path, key)
+        workbook_path = _summary_workbook_path(key, output_dir)
+        workbook_exists = _has_workbook(existing, workbook_path, expected_sheets, effective_template, template_hash)
         candidates.append(
             {
                 "kind": "stage",
@@ -1749,18 +2748,46 @@ def check_due(
                 "title": stage.get("title"),
                 "summary_key": key,
                 "eligible": eligible,
-                "due": eligible and existing is None,
-                "status": "already_exists" if existing else "due" if eligible else "not_ready",
+                "due": eligible and not workbook_exists,
+                "status": "already_exists" if workbook_exists else "due" if eligible else "not_ready",
+                "workbook_path": str(workbook_path),
                 "first_missing": built["snapshot"].get("stage_projection", {}).get("selected_stage", {}).get("first_missing"),
             }
         )
+    due_candidates = [item for item in candidates if item.get("due")]
+    if due_candidates:
+        kind_labels = {
+            "week": _label(context["language"], "period_week"),
+            "month": _label(context["language"], "period_month"),
+            "stage": _label(context["language"], "period_stage"),
+        }
+        due_labels = []
+        for item in due_candidates:
+            label = kind_labels.get(item.get("kind"), str(item.get("kind") or "summary"))
+            if item.get("kind") == "stage" and item.get("title"):
+                label = "%s（%s）" % (label, item["title"]) if context["language"] == "zh" else "%s (%s)" % (label, item["title"])
+            due_labels.append(label)
+        if context["language"] == "zh":
+            prompt = "检测到%s已到生成时机，是否现在生成？你也可以选择暂不生成。" % "、".join(due_labels)
+        else:
+            prompt = "The following summaries are ready to generate: %s. Generate them now? You can also skip them for now." % ", ".join(due_labels)
+        status = "awaiting_confirmation"
+    else:
+        prompt = None
+        status = "up_to_date"
     return {
         "version": 1,
         "as_of": as_of_date.isoformat(),
         "content_language": "zh-CN" if context["language"] == "zh" else "en",
         "data_quality": _data_quality(context["reasons"], (context["sessions"], context["assessments"], context["reviews"])),
         "candidates": candidates,
-        "due_count": sum(1 for item in candidates if item.get("due")),
+        "due_count": len(due_candidates),
+        "status": status,
+        "confirmation_required": bool(due_candidates),
+        "prompt": prompt,
+        "due_summaries": due_candidates,
+        "generated": [],
+        "generated_count": 0,
     }
 
 
@@ -1768,8 +2795,10 @@ def generate_due(
     study_root: Path,
     as_of_value: Optional[Any] = None,
     language: Optional[str] = None,
+    output_dir: Optional[Path] = None,
+    template_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    due = check_due(study_root, as_of_value, language)
+    due = check_due(study_root, as_of_value, language, output_dir, template_path)
     results: List[Dict[str, Any]] = []
     for candidate in due["candidates"]:
         if not candidate.get("due"):
@@ -1781,6 +2810,8 @@ def generate_due(
             candidate.get("stage_id"),
             language,
             persist=True,
+            output_dir=output_dir,
+            template_path=template_path,
         )
         results.append(
             {
@@ -1788,11 +2819,14 @@ def generate_due(
                 "summary_key": result["summary_key"],
                 "status": result["status"],
                 "persisted": result["persisted"],
+                "workbook_path": result.get("workbook_path") or candidate.get("workbook_path"),
+                "workbook_sheets": result.get("record", {}).get("workbook_sheets") or [],
             }
         )
     return {
         "version": 1,
         "as_of": due["as_of"],
+        "content_language": due.get("content_language"),
         "generated": results,
         "generated_count": len(results),
         "check": due,
@@ -1803,13 +2837,51 @@ def _print_check(result: Dict[str, Any], language: str) -> None:
     print("StudyAny %s" % ("总结检查" if language == "zh" else "summary check"))
     print("%s: %s" % (_label(language, "as_of"), result.get("as_of")))
     print("%s: %s" % (_label(language, "data_quality"), _status_text((result.get("data_quality") or {}).get("status"), language)))
+    if result.get("prompt"):
+        print("%s: %s" % ("确认" if language == "zh" else "Confirmation", result["prompt"]))
     for item in result.get("candidates", []):
         print("- %s %s: %s" % (item.get("kind"), item.get("summary_key"), item.get("status")))
+        if item.get("workbook_path"):
+            print("  %s: %s" % (_label(language, "workbook"), item["workbook_path"]))
+
+
+def _print_workbook_result(result: Dict[str, Any], language: str) -> None:
+    status = result.get("status")
+    if status == "not_ready":
+        print("%s: %s" % (_label(language, "status"), _label(language, "not_ready")))
+        missing = (
+            result.get("record", {})
+            .get("snapshot", {})
+            .get("stage_projection", {})
+            .get("selected_stage", {})
+            .get("first_missing")
+        )
+        if missing:
+            print("%s: %s" % (_label(language, "missing_evidence"), missing))
+        return
+    workbook_path = result.get("workbook_path") or (result.get("record") or {}).get("workbook_path")
+    if workbook_path:
+        print("%s: %s" % (_label(language, "workbook"), workbook_path))
+    sheets = result.get("record", {}).get("workbook_sheets") or []
+    if sheets:
+        print("%s: %s" % (_label(language, "workbook_sheets"), ", ".join(str(item) for item in sheets)))
+
+
+def _template_output_path(output: Optional[Path], output_dir: Optional[Path]) -> Path:
+    if output is not None:
+        path = Path(output).expanduser()
+        return (Path.cwd() / path).resolve() if not path.is_absolute() else path.resolve()
+    base = _default_summary_output_dir() if output_dir is None else Path(output_dir).expanduser()
+    if not base.is_absolute():
+        base = Path.cwd() / base
+    return (base / "studyany-summary-template.xlsx").resolve()
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Generate table-oriented StudyAny summaries.")
+    parser = argparse.ArgumentParser(description="Generate StudyAny summary workbooks.")
     parser.add_argument("--study-root", type=Path, default=Path(".study"))
+    parser.add_argument("--output-dir", type=Path, dest="global_output_dir", default=None)
+    parser.add_argument("--template", type=Path, dest="global_template", default=None)
     parser.add_argument("--json", action="store_true", dest="global_json_output")
     subcommands = parser.add_subparsers(dest="command", required=True)
 
@@ -1818,46 +2890,70 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     generate.add_argument("--stage-id")
     generate.add_argument("--as-of")
     generate.add_argument("--language")
+    generate.add_argument("--output-dir", type=Path, dest="command_output_dir")
+    generate.add_argument("--template", type=Path, dest="command_template")
     generate.add_argument("--json", action="store_true", dest="json_output")
 
     due = subcommands.add_parser("generate-due", help="generate all due period and stage summaries")
     due.add_argument("--as-of")
     due.add_argument("--language")
+    due.add_argument("--output-dir", type=Path, dest="command_output_dir")
+    due.add_argument("--template", type=Path, dest="command_template")
     due.add_argument("--json", action="store_true", dest="json_output")
 
     check = subcommands.add_parser("check", help="check which summaries are due")
     check.add_argument("--as-of")
     check.add_argument("--language")
+    check.add_argument("--output-dir", type=Path, dest="command_output_dir")
+    check.add_argument("--template", type=Path, dest="command_template")
     check.add_argument("--json", action="store_true", dest="json_output")
+
+    template = subcommands.add_parser("template", help="create an editable summary template")
+    template.add_argument("--language", default="zh-CN")
+    template.add_argument("--output-dir", type=Path, dest="command_output_dir")
+    template.add_argument("--output", type=Path)
+    template.add_argument("--json", action="store_true", dest="json_output")
 
     args = parser.parse_args(argv)
     json_output = bool(getattr(args, "json_output", False) or getattr(args, "global_json_output", False))
+    output_dir = getattr(args, "command_output_dir", None) or getattr(args, "global_output_dir", None)
+    template_path = getattr(args, "command_template", None) or getattr(args, "global_template", None)
     try:
+        if args.command == "template":
+            language = _language(args.language or "zh-CN")
+            output_path = _template_output_path(args.output, output_dir)
+            sheets = write_template_workbook(output_path, _presentation_labels(language), language)
+            result = {"status": "generated", "workbook_path": str(output_path), "workbook_format": "xlsx", "workbook_sheets": sheets, "content_language": "zh-CN" if language == "zh" else "en"}
+            if json_output:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print("%s: %s" % (_label(language, "workbook"), output_path))
+                print("%s: %s" % (_label(language, "workbook_sheets"), ", ".join(sheets)))
+            return 0
         if not args.study_root.exists():
             raise SummaryError("study root does not exist: %s" % args.study_root)
         if args.command == "generate":
             if args.kind == "stage" and not args.stage_id:
                 raise SummaryError("--stage-id is required for a stage summary")
-            result = generate_summary(args.study_root, args.kind, args.as_of, args.stage_id, args.language)
+            result = generate_summary(args.study_root, args.kind, args.as_of, args.stage_id, args.language, output_dir=output_dir, template_path=template_path)
             if json_output:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
-                print(result["record"].get("markdown", ""), end="")
+                _print_workbook_result(result, _language(args.language or (result.get("record") or {}).get("content_language") or "en"))
             return 0
         if args.command == "generate-due":
-            result = generate_due(args.study_root, args.as_of, args.language)
+            result = generate_due(args.study_root, args.as_of, args.language, output_dir=output_dir, template_path=template_path)
             if json_output:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
                 for item in result.get("generated", []):
-                    record = _existing_summary(args.study_root / "summaries.jsonl", item.get("summary_key"))
-                    if record and record.get("markdown"):
-                        print(record["markdown"], end="")
-                    else:
-                        print("Generated: %s" % item.get("summary_key"))
-                print("Generated summaries: %s" % result.get("generated_count", 0))
+                    print("- %s: %s" % (_label(_language(args.language or result.get("content_language") or "en"), "workbook"), item.get("workbook_path") or item.get("summary_key")))
+                language = _language(args.language or result.get("content_language") or "en")
+                if not result.get("generated"):
+                    print(_label(language, "no_new_summaries"))
+                print("%s: %s" % (_label(language, "generated_count"), result.get("generated_count", 0)))
             return 0
-        result = check_due(args.study_root, args.as_of, args.language)
+        result = check_due(args.study_root, args.as_of, args.language, output_dir=output_dir, template_path=template_path)
         language = _language(args.language or result.get("content_language") or "en")
         if json_output:
             print(json.dumps(result, ensure_ascii=False, indent=2))

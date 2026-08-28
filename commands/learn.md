@@ -57,19 +57,37 @@ sample text, and the handoff. Preserve exact programming keywords, API names,
 commands, paths, schema fields, and external contract text. Record the chosen
 language as `content_language` in the artifact record.
 
-At a session start, closeout, or state check, run the summary due check when a
-shell is available. `study_clock.py stop` performs the same check after the
-session is appended, and returns the generated keys in its `summaries` field:
+At a session start, closeout, or state check, run the read-only summary due
+check when a shell is available. `study_clock.py stop` performs the same check
+after the session is appended, and returns pending summaries in its
+`summaries` field. When `confirmation_required` is true, ask the learner
+whether to generate the listed summaries. Do not call `generate-due` before an
+explicit yes; a no leaves source records and summary logs unchanged:
 
 ```text
+python <skill-dir>/scripts/study_summary.py --study-root .study check
 python <skill-dir>/scripts/study_summary.py --study-root .study generate-due
 ```
 
-This may save one summary for the previous completed week, previous completed
-month, or a stage whose exit evidence is complete. Do not generate a stage
-summary after every task, and do not claim background notifications. For a
-learner-requested table report, use `generate --kind week|month|stage|overall`
-and show the rendered Markdown tables; use `--json` for the structured data.
+The first command only checks the previous completed week, previous completed
+month, or a stage whose exit evidence is complete. The second command is used
+only after the learner confirms and may save those workbooks. Reports are written to
+`<current-working-directory>/study-reports/` by default. Do not generate a
+stage summary after every task, and do not claim background notifications. For a
+learner-requested table report, use `generate --kind week|month|stage|overall`;
+the command returns the `.xlsx` path, and `--json` returns the structured
+snapshot, workbook path, and sheet names. Use `--output-dir <path>` to choose
+another visible report directory.
+
+The workbook starts with `结论与计划`, followed by `学习进展`, `能力证据`, and
+`复习与后续计划`. A developer template created by `study_summary.py template`
+has an additional `自定义文字` sheet; it is not included in learner reports.
+To change display wording, edit only the second column of that template sheet
+and pass the saved workbook with `--template`. Keep the fixed keys in the first
+column unchanged. Reports may show explicitly recorded energy or distraction
+as secondary observations, but never infer a learner's condition from scores,
+frequency, wording, or missing values. Clearly broken interrupted sessions are
+excluded from report counts and time totals and mentioned only in the data note.
 
 Learner-editable artifacts must be placed in a visible project-root path. Use
 `studyany-artifacts/<goal>/` when no project path was supplied; reserve

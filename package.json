@@ -13,6 +13,7 @@
     "skill/studyany/scripts/study_clock.py",
     "skill/studyany/scripts/study_analytics.py",
     "skill/studyany/scripts/study_summary.py",
+    "skill/studyany/scripts/study_workbook.py",
     "skill/studyany/scripts/study_state.py",
     "bin/",
     "commands/",

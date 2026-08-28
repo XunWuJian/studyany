@@ -18,6 +18,9 @@ except ImportError:  # pragma: no cover - Python versions without zoneinfo
     ZoneInfo = None  # type: ignore
 
 
+MAX_RELIABLE_INTERRUPTED_MINUTES = 24 * 60
+
+
 DIMENSIONS = ("understanding", "retrieval", "application", "transfer", "retention")
 PROMPT_DIMENSIONS = {
     "explain": "understanding",
@@ -67,6 +70,15 @@ def _number(value: Any, minimum: Optional[float] = None) -> Optional[float]:
     if minimum is not None and value < minimum:
         return None
     return value
+
+
+def _duration_is_unreliable(row: Dict[str, Any], duration: Optional[float]) -> bool:
+    """Do not treat a multi-day interrupted clock span as study time."""
+    return (
+        row.get("status") == "interrupted"
+        and duration is not None
+        and duration > MAX_RELIABLE_INTERRUPTED_MINUTES
+    )
 
 
 def _read_json(path: Path, reasons: List[str]) -> Dict[str, Any]:
@@ -239,6 +251,8 @@ def _session_metrics(
     maximum = _profile_target(profile, "maximum_session_minutes", reasons)
     measured: List[Dict[str, Any]] = []
     included_count = 0
+    excluded_session_count = 0
+    excluded_session_ids: List[str] = []
     unknown_duration_count = 0
     unknown_timestamp_count = 0
     daily_minutes: Dict[str, float] = defaultdict(float)
@@ -246,10 +260,6 @@ def _session_metrics(
     total = 0.0
     planned_total = 0.0
     planned_count = 0
-    active_total = 0.0
-    active_count = 0
-    passive_total = 0.0
-    passive_count = 0
     overlong: List[Dict[str, Any]] = []
     maximum_exceeded: List[Dict[str, Any]] = []
     active_overlong: List[Dict[str, Any]] = []
@@ -266,9 +276,15 @@ def _session_metrics(
             continue
         if not _in_window(session_date, start, min(end, observation_end)):
             continue
+        duration = _number(row.get("duration_min"), minimum=0)
+        if _duration_is_unreliable(row, duration):
+            excluded_session_count += 1
+            if row.get("session_id"):
+                excluded_session_ids.append(str(row.get("session_id")))
+            reasons.append("interrupted_duration_unreliable")
+            continue
         included_count += 1
         study_days.add(session_date)
-        duration = _number(row.get("duration_min"), minimum=0)
         if duration is None:
             unknown_duration_count += 1
         else:
@@ -297,14 +313,6 @@ def _session_metrics(
         if planned is not None:
             planned_total += planned
             planned_count += 1
-        active = _number(row.get("active_minutes"), minimum=0)
-        if active is not None:
-            active_total += active
-            active_count += 1
-        passive = _number(row.get("passive_minutes"), minimum=0)
-        if passive is not None:
-            passive_total += passive
-            passive_count += 1
 
     active_info: Optional[Dict[str, Any]] = None
     if active_session:
@@ -337,7 +345,7 @@ def _session_metrics(
     if included_count == 0:
         reasons.append("no_sessions_in_window")
 
-    if measured:
+    if measured and not unknown_duration_count and not unknown_timestamp_count:
         measurement_status = "measured"
         actual_minutes: Optional[float] = _round(total, 1)
     elif unknown_duration_count or unknown_timestamp_count or not source_available:
@@ -350,6 +358,8 @@ def _session_metrics(
     return {
         "session_count": included_count,
         "session_count_status": "known" if source_available else "unknown",
+        "excluded_session_count": excluded_session_count,
+        "excluded_session_ids": excluded_session_ids,
         "measured_session_count": len(measured),
         "unknown_duration_count": unknown_duration_count,
         "unknown_timestamp_count": unknown_timestamp_count,
@@ -359,8 +369,6 @@ def _session_metrics(
         "actual_minutes": actual_minutes,
         "planned_minutes": _round(planned_total, 1) if planned_count else None,
         "planned_session_count": planned_count,
-        "active_minutes": _round(active_total, 1) if active_count else None,
-        "passive_minutes": _round(passive_total, 1) if passive_count else None,
         "daily_minutes": {key: _round(value, 1) for key, value in sorted(daily_minutes.items())},
         "overlong_sessions": overlong,
         "maximum_exceeded_sessions": maximum_exceeded,
@@ -821,6 +829,7 @@ def _quality_status(reasons: Sequence[str], time_data: Dict[str, Any], reviews: 
         or "_invalid" in reason
         or "_unreadable" in reason
         or reason.startswith("invalid_")
+        or reason == "interrupted_duration_unreliable"
         for reason in reasons
     )
     if structural:

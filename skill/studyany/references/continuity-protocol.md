@@ -120,12 +120,17 @@ Before ending a learning interaction:
 6. End with one concrete next action. A lesson is not persisted merely because
    the assistant displayed a summary in chat.
 
-At a session start, closeout, or explicit state check, run the summary due
-check when a shell is available. It may append the previous completed local
-week/month or a stage whose exit gates are satisfied. It must not append a
-stage summary after every task. `summaries.jsonl` is idempotent by
-`summary_key`, and a missing or partial source record remains visible in the
-summary's data-quality table.
+At a session start, closeout, or explicit state check, run the read-only summary
+due check when a shell is available. If it returns due candidates, ask the
+learner whether to generate them; do not append a summary before an explicit
+confirmation. A decline leaves the summary log and workbooks unchanged. After
+confirmation, `generate-due` may append the previous completed local week/month
+or a stage whose exit gates are satisfied. It must not append a stage summary
+after every task. `summaries.jsonl` is idempotent by `summary_key`, and a
+missing or partial source record remains visible in the summary's data-quality
+sheet. The learner-facing `.xlsx` file is written to
+`<current-working-directory>/study-reports/` by default; its path is returned
+in the generated summary metadata.
 
 If the learner changes the goal, preserve the old history, update `goals.json`
 and `roadmap.json`, and explain which open loops were deferred or made

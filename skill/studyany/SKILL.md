@@ -89,8 +89,10 @@ Read only the reference needed for the current operation:
   projection returned by `scripts/study_state.py status --json`; read its data
   quality before acting on an alert.
 - For a requested report or a due period/stage milestone, use
-  `scripts/study_summary.py`. It renders Markdown tables and appends an
-  idempotent structured snapshot to `summaries.jsonl`; read
+  `scripts/study_summary.py`. It writes a localized `.xlsx` workbook to the
+  visible `study-reports/` directory under the current working directory and
+  appends an idempotent structured snapshot plus workbook path to
+  `summaries.jsonl`; read
   `references/record-schema.md` for the summary contract.
 - Whenever a learner-facing file, report, template, notebook, workbook,
   fixture, or other artifact is created or substantially edited, read
@@ -353,9 +355,10 @@ python <skill-dir>/scripts/study_clock.py stop --status complete --next-action "
 Use `py -3` on Windows when `python` is unavailable. The script stores an open
 session in `.study/active-session.json` and appends the completed event to
 `.study/sessions.jsonl`. After `stop` successfully appends a session, it also
-runs the due-summary check and returns its result under `summaries`; a summary
-failure does not discard the session. On a later turn, check `status` before
-starting a new session. During a long interaction, check `status` before
+runs a read-only due-summary check and returns its result under `summaries`; it
+does not create a workbook. A summary-check failure does not discard the
+session. On a later turn, check `status` before starting a new session. During
+a long interaction, check `status` before
 another major work block and before closeout so both the system clock and
 computed analytics can regulate pacing. If the script cannot be executed, use the same state rules
 with a timestamp or clearly labeled user estimate, and mark analytics as
@@ -370,8 +373,10 @@ weak-evidence condition. The analyzer checks only when invoked; it does not
 send background notifications.
 
 Append a session record even when the learner performs poorly. Record planned
-time separately from actual time. Count active recall, practice, feedback, and
-output as evidence-bearing activity; report passive reading separately.
+time separately from actual time. Keep total recorded time separate from
+evidence such as recall, practice, feedback, and output; do not split time
+into active and passive categories when the learner has not asked for that
+distinction.
 Do not treat an immediate repeat as a delayed review. Record the review's delay
 type and interval stage, and keep the next spaced review even when a
 same-session correction was successful.
@@ -440,8 +445,15 @@ and a periodic assessment for stage decisions. A weekly or monthly table
 summary covers the previous completed local calendar period. A stage summary
 is produced only after the stage's observable exit evidence is satisfied across
 the relevant concepts; one completed task or session is not a stage milestone.
-Use `scripts/study_summary.py generate-due` at a study start, closeout, or
-state check. It does not run as a background notifier. Use the analyzer's
+At a study start, closeout, or state check, use the read-only due-summary check
+returned by `study_state.py` or run `scripts/study_summary.py check`. When it
+returns `confirmation_required: true`, tell the learner which summaries are
+ready and ask whether to generate them. Do not call `generate-due` before an
+explicit yes; if the learner declines, leave source records and summary logs
+unchanged. Only after confirmation, run `scripts/study_summary.py generate-due`.
+It writes each generated workbook to
+`<current-working-directory>/study-reports/` by default, and does not run as a
+background notifier. Use the analyzer's
 `--as-of` date only when a reproducible report is needed; do not invent
 historical analytics for missing records. Read
 `references/assessment-rubrics.md` and
@@ -449,11 +461,17 @@ historical analytics for missing records. Read
 state-sensitive feedback.
 
 The summary tables must separate period learning, stage progress, overall
-progress, and efficiency. Overall progress is expressed as completed required
-stages and observed goal evidence, not an unsupported single mastery
-percentage. Efficiency is a group of measured indicators such as actual
-versus planned time, active-time share, delayed-review pass rate, transfer
-rate, and comparable evidence changes. Unknown denominators remain unknown.
+progress, and efficiency. The learner-facing first sheet must answer, in this
+order: what is the main conclusion, what has been done, what is missing, what
+single action comes next, why it matters, and what result to return. Use plain
+Chinese when the learner is using Chinese; introduce no internal rubric name
+without a nearby explanation. Overall progress is expressed as completed
+learning steps and observed goal results, not an unsupported single mastery
+percentage. Efficiency is a group of measured indicators such as actual versus
+planned time, delayed-review pass rate, transfer rate, and comparable evidence
+changes. Do not treat time as a measure of learning quality, and do not split
+it into active and passive categories by default. Unknown denominators remain
+unknown.
 
 ## Recovery behavior
 
@@ -537,8 +555,24 @@ avoid unsupported precision.
 For a generated table summary, include the period, data quality, period
 activity, current stage gate, overall stage/goal progress, five evidence
 dimensions, efficiency indicators, review risks, and one to three next actions.
-Use `--json` when another tool needs the structured snapshot instead of the
-rendered Markdown.
+The learner-facing table is the generated `.xlsx` workbook. It has four sheets:
+`结论与计划`, `学习进展`, `能力证据`, and `复习与后续计划`. The first sheet
+puts the goal, current situation, priority plan, and expected result first; the
+other sheets provide supporting detail. A developer template may contain an
+additional `自定义文字` sheet, but that sheet is never included in a learner
+report. Use `--json` when another tool needs the structured snapshot and
+workbook path. Use `--output-dir` to choose a different output directory. Run
+`study_summary.py template` to create a reusable developer template. In its
+`自定义文字` sheet, edit only the second column, then pass the file with
+`--template`; this changes displayed wording without changing learning data or
+assessment rules.
+
+The snapshot may show explicitly recorded `energy` and `distraction` values as
+secondary observations. Do not infer a learner's mood or condition from scores,
+frequency, wording, or missing values. A clearly broken interrupted session is
+excluded from session count, study days, planned minutes, actual minutes, and
+state observations; keep only a data note explaining the exclusion. Reliable
+records in the same period remain included.
 
 When a challenge occurs, add this compact block and then return to the learning
 objective:

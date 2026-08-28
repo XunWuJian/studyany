@@ -2,6 +2,7 @@ node_modules/
 __pycache__/
 *.py[cod]
 .study/
+study-reports/
 .npmrc
 .env
 .env.*

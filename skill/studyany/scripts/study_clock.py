@@ -57,17 +57,33 @@ def append_jsonl(path: Path, value: Dict[str, Any]) -> None:
         stream.write(json.dumps(value, ensure_ascii=False) + "\n")
 
 
-def generate_due_summaries(study_root: Path) -> Dict[str, Any]:
-    """Run the non-critical summary check without losing a session record."""
+def check_due_summaries(study_root: Path) -> Dict[str, Any]:
+    """Check due summaries without writing files or losing a session record."""
     try:
-        from study_summary import SummaryError, generate_due
+        from study_summary import SummaryError, check_due
     except (ImportError, OSError, ValueError) as exc:
-        return {"error": str(exc), "generated_count": 0, "generated": []}
+        return {
+            "status": "check_failed",
+            "error": str(exc),
+            "confirmation_required": False,
+            "due_count": 0,
+            "due_summaries": [],
+            "generated_count": 0,
+            "generated": [],
+        }
 
     try:
-        return generate_due(study_root)
+        return check_due(study_root)
     except (OSError, SummaryError, ValueError) as exc:
-        return {"error": str(exc), "generated_count": 0, "generated": []}
+        return {
+            "status": "check_failed",
+            "error": str(exc),
+            "confirmation_required": False,
+            "due_count": 0,
+            "due_summaries": [],
+            "generated_count": 0,
+            "generated": [],
+        }
 
 
 def history_contains(path: Path, session_id: str) -> bool:
@@ -126,8 +142,6 @@ def command_start(args: argparse.Namespace) -> None:
         "status": "in_progress",
         "evidence_mode": args.evidence_mode,
         "objectives": args.objective or [],
-        "active_minutes": None,
-        "passive_minutes": None,
         "recall_score": None,
         "practice_score": None,
         "confidence_before": None,
@@ -206,7 +220,7 @@ def command_stop(args: argparse.Namespace) -> None:
     append_jsonl(paths["sessions"], session)
     paths["active"].unlink()
     response = dict(session)
-    response["summaries"] = generate_due_summaries(args.study_root)
+    response["summaries"] = check_due_summaries(args.study_root)
     emit(response)
 
 

@@ -132,6 +132,7 @@ StudyAny keeps current continuity separate from historical evidence:
 .study/coaching_events.jsonl meaningful feedback and pacing adjustments
 .study/summaries.jsonl   idempotent weekly, monthly, stage, and overall snapshots
 .study/dashboard.md      derived human-readable summary
+study-reports/           learner-facing Excel summary workbooks
 ```
 
 At the start of a new conversation, the skill reads the checkpoint and latest
@@ -195,17 +196,46 @@ python .claude/skills/studyany/scripts/study_summary.py --study-root .study gene
 python .claude/skills/studyany/scripts/study_summary.py --study-root .study check
 ```
 
-`generate-due` checks the previous local week, previous local month, and
-observable stage exit gates. The same period or stage is never appended twice:
+`check` checks the previous local week, previous local month, and observable
+stage exit gates without writing a file. If it reports
+`status: "awaiting_confirmation"`, ask the learner whether to generate the
+listed summaries. Run `generate-due` only after an explicit confirmation; a
+decline leaves the source records and summary log unchanged. The same period or
+stage is never appended twice:
 `.study/summaries.jsonl` uses a stable `summary_key`. Stage summaries require
 evidence across the stage concepts, so one ordinary task or session does not
-close a stage. The Markdown report uses tables for period activity, stage and
-overall progress, evidence dimensions, efficiency, reviews, risks, and next
-actions. Missing time, denominators, or evidence remain marked as unknown or
-insufficient rather than being estimated. After a successful
-`study_clock.py stop`, the same due check runs automatically; its result is
-returned as command metadata under `summaries`, while the session record stays
-unchanged.
+close a stage. Each generated learner-facing `.xlsx` workbook has four sheets:
+`结论与计划`, `学习进展`, `能力证据`, and `复习与后续计划`. Open the first
+sheet first: it presents the goal, current situation, priority plan, and
+expected result. The other sheets provide supporting detail. The developer
+template has an additional `自定义文字` sheet, but that sheet is not included
+in user reports. Workbooks are written to
+`<current-working-directory>/study-reports/` by default; pass
+`--output-dir <path>` to choose another visible directory. Missing time,
+denominators, or evidence remain marked as unknown or insufficient rather than
+being estimated. After a successful `study_clock.py stop`, the same read-only
+due check runs automatically; its result is returned as command metadata under
+`summaries`, including the confirmation prompt and candidate workbook paths,
+while no workbook is created until the learner confirms. The session record
+contains no summary-generation metadata.
+Older Markdown summary records are upgraded to this workbook format on
+regeneration.
+
+To change the wording without changing learning records, create a template:
+
+```text
+python skill/studyany/scripts/study_summary.py template --output-dir study-reports
+python skill/studyany/scripts/study_summary.py --study-root .study generate --kind overall --template study-reports/studyany-summary-template.xlsx
+```
+
+In the template, edit only the second column of `自定义文字`; keep the fixed
+keys in the first column unchanged.
+
+Only explicitly recorded learning conditions such as `energy` or `distraction`
+may appear as secondary observations. The generator does not infer mood or
+condition from scores, frequency, wording, or missing values. Clearly broken
+interrupted sessions are excluded from counts, study days, planned time, actual
+time, and state observations, and are mentioned only in the data notes.
 
 ## Challenge Handling
 
