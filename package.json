@@ -1,6 +1,6 @@
 {
   "name": "studyany",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "An AI-assisted learning coach skill with durable spaced learning, study-time tracking, feedback, and artifact-based practice.",
   "type": "module",
   "bin": {
